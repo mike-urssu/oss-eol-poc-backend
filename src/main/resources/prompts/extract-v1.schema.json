@@ -1,0 +1,43 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["versions"],
+  "properties": {
+    "versions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "latestPatchVersion", "releaseDate", "eolDate", "securityEolDate", "support"],
+        "properties": {
+          "version": { "type": "string" },
+          "latestPatchVersion": { "anyOf": [{ "$ref": "#/$defs/quoted" }, { "type": "null" }] },
+          "releaseDate": { "anyOf": [{ "$ref": "#/$defs/quoted" }, { "type": "null" }] },
+          "eolDate": { "anyOf": [{ "$ref": "#/$defs/quoted" }, { "type": "null" }] },
+          "securityEolDate": { "anyOf": [{ "$ref": "#/$defs/quoted" }, { "type": "null" }] },
+          "support": { "anyOf": [{ "$ref": "#/$defs/support" }, { "type": "null" }] }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "quoted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "quote"],
+      "properties": {
+        "value": { "type": "string" },
+        "quote": { "type": "string" }
+      }
+    },
+    "support": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "quote"],
+      "properties": {
+        "value": { "type": "string", "enum": ["SUPPORTED", "EOL"] },
+        "quote": { "type": "string" }
+      }
+    }
+  }
+}

@@ -41,7 +41,7 @@
 | D1 | 버전의 "검증 상태"는 컬럼으로 저장하지 않고 후보 이력에서 계산한다(6.3절). `oss_lifecycle.validation_status` 컬럼은 두지 않는다. | 현재 데이터는 정의상 승인된 값이므로, 화면의 검증 상태는 "최근 후보의 상태"를 의미한다. 저장하면 후보와 값이 어긋날 수 있다. |
 | D2 | 검증 상태는 후보(버전 1건) 단위로 정하며, 필드 중 가장 엄격한 결과를 따른다. | 필드 단위 부분 반영은 근거·이력 처리가 복잡해진다. |
 | D3 | VAL-09(AI 값 변경)·VAL-10(이상 변경)·VAL-12(출처 간 충돌)는 하나의 규칙 `VALUE_CHANGED`로 구현한다. | 모든 추출이 AI이므로 "승인된 값과 다르면 검토"로 세 규칙이 모두 충족된다. 같은 수집 주기의 출처 간 충돌은 출처를 순서대로 처리하여 앞 출처 값이 승인된 뒤 비교되도록 한다. |
-| D4 | `LATEST_PATCH_VERSION` 변경은 `VALUE_CHANGED` 대상에서 제외한다. 근거 확인만 통과하면 자동 승인하고 변경 이력은 남긴다. | 패치 릴리스마다 검토가 생기면 검토 큐가 의미를 잃는다. EOL 판단과 무관한 값이다. |
+| D4 | `LATEST_PATCH_VERSION`이 다른 값으로 바뀌는 것은 `VALUE_CHANGED` 대상에서 제외한다. 근거 확인만 통과하면 자동 승인하고 변경 이력은 남긴다. 단, 승인된 값이 **없어지는** 경우는 검토한다. | 패치 릴리스마다 검토가 생기면 검토 큐가 의미를 잃는다. EOL 판단과 무관한 값이다. |
 | D5 | 콘텐츠 해시는 원본 HTML이 아니라 **AI에 전달한 텍스트**로 계산하고, 프롬프트 버전이 같을 때만 생략한다. | HTML에는 매 요청 바뀌는 토큰·타임스탬프가 섞여 해시가 매번 달라질 수 있다. 프롬프트를 바꾸면 다시 추출해야 한다. |
 | D6 | 근거의 `source_url`은 AI 출력이 아니라 **코드가 출처 설정에서 채운다**. | AI가 URL을 만들어내는 것을 원천 차단한다. |
 | D7 | AI 모델 ID·프롬프트 버전·토큰 사용량은 후보가 아니라 `eol_collection`에 기록한다(수집 1회 = AI 호출 1회). 후보는 `collection_id`로 참조한다. | 같은 값의 중복 저장 방지 |
@@ -190,7 +190,7 @@ data class Quoted(val value: String, val quote: String)
 |------|----|
 | SDK | `com.anthropic:anthropic-java` (2.34.0), `AnthropicOkHttpClient.fromEnv()` — `ANTHROPIC_API_KEY` 환경 변수 사용 |
 | 모델 | `claude-sonnet-5-5` (설정값 `eol.ai.model`) |
-| 구조화 출력 | `MessageCreateParams.builder().outputConfig(ExtractionResult::class.java)`로 스키마를 강제하고 타입으로 받는다. Kotlin 클래스의 스키마 생성이 맞지 않으면 `JsonOutputFormat`으로 스키마를 직접 지정한다. |
+| 구조화 출력 | `JsonOutputFormat`에 스키마를 직접 지정한다(`prompts/extract-v1.schema.json`). 클래스에서 자동 생성한 스키마는 Kotlin nullable 필드도 `null`을 허용하지 않는 필수 값으로 만들어, 문서에 없는 값을 AI가 지어내게 되므로 쓰지 않는다. |
 | thinking / effort | `thinking`은 지정하지 않는다(adaptive). `effort`는 설정값, 기본 `medium`. fixture 정확도(9장)를 보고 조정한다. |
 | max_tokens | 기본 16000(설정값). 비스트리밍 호출. 버전이 많은 출처에서 부족하면 스트리밍 + 64000으로 바꾼다. |
 | 입력 한도 | 컨텍스트 1M 토큰. 초과 위험이 있는 출처는 `selector`로 범위를 줄인다(AI-06). |
@@ -426,6 +426,7 @@ CREATE TABLE eol_candidate (
     id                          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     collection_id               BIGINT      NOT NULL REFERENCES eol_collection(id),
     opensource_id               BIGINT      NOT NULL REFERENCES opensource(id),
+    source_id                   BIGINT      NOT NULL REFERENCES source_registry(id),
     version                     TEXT        NOT NULL,
     latest_patch_version        TEXT,
     release_date                DATE,
@@ -475,7 +476,7 @@ CREATE TABLE eol_change_history (
 CREATE INDEX ON eol_change_history (version_id, changed_at DESC);
 ```
 
-- 요구사항 5.1 대비 변경: `oss_lifecycle.validation_status` 제거(D1), `eol_evidence.value/source_id` 추가(D8), AI 메타데이터를 `eol_collection`으로 이동(D7), `eol_collection.content_text/skipped_unchanged/error_code` 추가(D5), `eol_candidate.opensource_id` 추가(조회용).
+- 요구사항 5.1 대비 변경: `oss_lifecycle.validation_status` 제거(D1), `eol_evidence.value/source_id` 추가(D8), AI 메타데이터를 `eol_collection`으로 이동(D7), `eol_collection.content_text/skipped_unchanged/error_code` 추가(D5), `eol_candidate.opensource_id`(조회용)·`source_id`(D9 대체 처리용) 추가.
 - `raw_content`와 `content_text`는 수집마다 저장되므로 커진다. POC에서는 보관 기간을 두지 않는다(10장).
 
 ### 5.3 시드 데이터 (REG-03)

@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: eol-poc-backend
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/eol}
+    username: ${DB_USERNAME:eol}
+    password: ${DB_PASSWORD:eol}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    locations: classpath:db/migration,classpath:db/seed
+  mvc:
+    problemdetails:
+      enabled: true
+  threads:
+    virtual:
+      enabled: true
+
+eol:
+  zone: Asia/Seoul
+  soon-threshold-days: 90
+  collection:
+    cron: "0 0 3 * * *"
+  http:
+    connect-timeout: 5s
+    read-timeout: 30s
+    user-agent: "eol-poc/0.1"
+    max-retries: 2
+    retry-delay: 1s
+  ai:
+    model: claude-sonnet-5-5
+    effort: medium
+    max-tokens: 16000
+    prompt-version: extract-v1
+  cors:
+    allowed-origins: http://localhost:5173
