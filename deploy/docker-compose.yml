@@ -1,0 +1,30 @@
+# 운영 서버의 배포 디렉터리(예: /opt/eol-poc)에 Jenkins가 복사한다.
+# image.env: Jenkins가 배포 때마다 쓰는 이미지 이름·태그 / app.env: 서버에서 직접 관리하는 비밀값
+# 외부 포트는 열지 않는다. Traefik(proxy 네트워크)이 oss-poc.jjoon.cloud로 들어온 요청을 전달하고,
+# DB는 postgresql 네트워크의 기존 PostgreSQL 컨테이너에 붙는다.
+services:
+  app:
+    image: ${IMAGE}:${IMAGE_TAG}
+    restart: unless-stopped
+    env_file: app.env
+    networks:
+      - proxy
+      - postgresql
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.oss-poc.rule=Host(`oss-poc.jjoon.cloud`)
+      - traefik.http.routers.oss-poc.entrypoints=websecure        # TODO: Traefik의 HTTPS entrypoint 이름
+      - traefik.http.routers.oss-poc.tls.certresolver=letsencrypt # TODO: Traefik의 인증서 resolver 이름
+      - traefik.http.services.oss-poc.loadbalancer.server.port=8080
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+networks:
+  proxy:
+    external: true
+  postgresql:
+    external: true

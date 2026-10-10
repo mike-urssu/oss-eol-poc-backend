@@ -660,7 +660,7 @@ eol:
 | 테스트 | Spring Boot Testcontainers, Testcontainers PostgreSQL |
 | 빌드 플러그인 | `kotlin("plugin.jpa")`, `allOpen` 설정 |
 
-Boot 4에서 starter 이름이 일부 바뀌었으므로 정확한 좌표는 구현 시 start.spring.io 기준으로 확인한다. Docker 이미지는 `bootBuildImage`로 만든다.
+Boot 4에서 starter 이름이 일부 바뀌었으므로 정확한 좌표는 구현 시 start.spring.io 기준으로 확인한다. Docker 이미지는 Jib(`eclipse-temurin:21-jre` 기반)으로 만들어 레지스트리에 push한다. 배포 절차는 [deploy.md](deploy.md) 참고.
 
 ---
 

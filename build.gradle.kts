@@ -4,6 +4,7 @@ plugins {
     kotlin("plugin.jpa") version "2.3.21"
     id("org.springframework.boot") version "4.1.1"
     id("io.spring.dependency-management") version "1.1.7"
+    id("com.google.cloud.tools.jib") version "3.4.5"
 }
 
 group = "cloud.jjoon"
@@ -53,4 +54,23 @@ allOpen {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+// 이미지 이름·태그와 레지스트리 계정은 Jenkins가 넘긴다(Jenkinsfile 참고).
+jib {
+    from {
+        image = "eclipse-temurin:21-jre"
+    }
+    to {
+        image = "eol-poc-backend"
+        auth {
+            username = System.getenv("REG_USER")
+            password = System.getenv("REG_PASS")
+        }
+    }
+    container {
+        user = "65534:65534" // nobody
+        ports = listOf("8080")
+        creationTime = "USE_CURRENT_TIMESTAMP"
+    }
 }
