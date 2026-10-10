@@ -1,16 +1,16 @@
 // 운영 배포 파이프라인: 테스트 → Jib으로 이미지 빌드·push → (승인) → SSH로 서버에 배포 → 기동 확인
-// 처음 설정 방법은 docs/deploy.md 참고. TODO 표시된 값을 환경에 맞게 바꾼다.
+// 처음 설정 방법은 docs/deploy.md 참고.
+// Jenkins 시스템 환경 변수 DEPLOY_HOST(운영 서버 user@host), DEPLOY_PORT(SSH 포트)를 사용한다.
 pipeline {
     agent any
 
     environment {
         REGISTRY          = 'ghcr.io'                       // GitHub Container Registry
         IMAGE             = "${REGISTRY}/mike-urssu/oss-eol-poc-backend"
-        REGISTRY_CRED     = 'ghcr'                          // Jenkins credentials ID: GitHub 사용자명 + PAT(write:packages)
-        DEPLOY_SSH_CRED   = 'eol-deploy-ssh'                // TODO: Jenkins credentials ID (SSH private key)
-        DEPLOY_HOST       = 'deploy@eol-server.internal'    // TODO: 운영 서버 계정@호스트
-        DEPLOY_DIR        = '/opt/eol-poc'
-        APP_URL           = 'https://oss-poc.jjoon.cloud'
+        REGISTRY_CRED     = 'ghcr-credentials'              // Username with password: GitHub 사용자명 + PAT(write:packages)
+        DEPLOY_SSH_CRED   = 'deploy-ssh-key'                // SSH Username with private key: 운영 서버 배포 계정의 개인키
+        DEPLOY_DIR        = '/opt/projects/oss-eol-poc'
+        APP_URL           = 'https://oss-poc-api.jjoon.cloud'
     }
 
     options {
@@ -53,10 +53,11 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                sshagent(credentials: [env.DEPLOY_SSH_CRED]) {
+                withCredentials([sshUserPrivateKey(credentialsId: env.DEPLOY_SSH_CRED, keyFileVariable: 'SSH_KEY')]) {
                     sh '''
-                        scp -o StrictHostKeyChecking=accept-new deploy/docker-compose.yml "$DEPLOY_HOST:$DEPLOY_DIR/docker-compose.yml"
-                        ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST" "
+                        SSH_OPTS="-i $SSH_KEY -o StrictHostKeyChecking=accept-new"
+                        scp $SSH_OPTS -P "$DEPLOY_PORT" deploy/compose.yml "$DEPLOY_HOST:$DEPLOY_DIR/compose.yml"
+                        ssh $SSH_OPTS -p "$DEPLOY_PORT" "$DEPLOY_HOST" "
                             set -e
                             cd '$DEPLOY_DIR'
                             printf 'IMAGE=%s\\nIMAGE_TAG=%s\\n' '$IMAGE' '$IMAGE_TAG' > image.env
