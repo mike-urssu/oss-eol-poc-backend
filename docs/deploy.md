@@ -3,7 +3,7 @@
 `main` 브랜치를 Jenkins가 빌드해 운영 서버 1대에 Docker로 배포하고, Traefik을 통해 `https://oss-poc-api.jjoon.cloud`로 서비스한다. 비밀값(DB 비밀번호, Anthropic API 키)은 Jenkins를 거치지 않고 운영 서버의 `app.env`에만 둔다.
 
 ```
-GitHub ──webhook──▶ Jenkins: Test → Build & push image(Jib) → Approve(수동) → Deploy(SSH) → Verify
+GitHub ──webhook──▶ Jenkins: Test → Build & push image(Jib) → Deploy(SSH) → Verify → Clean up registry
                                          │                              │
                                   ghcr.io ◀──────────────────── pull ── 운영 서버 (docker compose)
 
@@ -14,7 +14,7 @@ GitHub ──webhook──▶ Jenkins: Test → Build & push image(Jib) → Appr
 | 파일 | 역할 |
 |------|------|
 | `Jenkinsfile` | 파이프라인. 등록된 credentials와 Jenkins 시스템 환경 변수(`DEPLOY_HOST`, `DEPLOY_PORT`)를 사용한다. |
-| `build.gradle.kts`의 `jib` | `eclipse-temurin:21-jre` 기반 이미지를 Docker 데몬 없이 만들어 push한다. `nobody`(65534) 사용자로 실행한다. 대상 플랫폼은 linux/amd64. |
+| `build.gradle.kts`의 `jib` | `eclipse-temurin:21-jre` 기반 이미지를 Docker 데몬 없이 만들어 push한다. `nobody`(65534) 사용자로 실행한다. 대상 플랫폼은 운영 서버에 맞춘 linux/arm64. |
 | `deploy/compose.yml` | 운영 서버에서 실행할 서비스 정의. 배포 때마다 Jenkins가 복사한다. |
 | `deploy/app.env.example` | 운영 서버 `app.env`의 예시. |
 
@@ -50,7 +50,7 @@ GitHub ──webhook──▶ Jenkins: Test → Build & push image(Jib) → Appr
 
   | ID | 종류 | 내용 |
   |----|------|------|
-  | `ghcr-credentials` | Username with password | GitHub 사용자명 + PAT(`write:packages`) |
+  | `ghcr-credentials` | Username with password | GitHub 사용자명 + classic PAT(`write:packages`, `delete:packages`) |
   | `deploy-ssh-key` | SSH Username with private key | 운영 서버 배포 계정의 개인키 |
 - 시스템 환경 변수 (Manage Jenkins → System → Global properties, 등록되어 있음)
 
@@ -68,10 +68,15 @@ GitHub ──webhook──▶ Jenkins: Test → Build & push image(Jib) → Appr
 ```
 
 ## 배포
-`main`에 push하면 테스트와 이미지 push까지 자동으로 진행되고, **Approve 단계에서 사람이 승인해야** 운영 서버에 배포된다. 이미지 태그는 커밋 해시 앞 8자리다.
+`main`에 push하면 테스트를 통과한 경우 **승인 없이 운영 서버까지 자동 배포**된다. 이미지 태그는 커밋 해시 앞 8자리다.
+
+## 이미지 정리
+- **GHCR**: 배포가 끝나면 `Clean up registry` 단계가 Gradle `ghcrCleanup` 태스크로 이미지 버전을 생성일 기준으로 정렬해 최신 10개(`KEEP_IMAGES`)만 남기고 지운다. 정리에 실패해도 빌드는 성공으로 남고 해당 단계만 실패로 표시된다.
+  삭제 대상만 미리 보려면: `GHCR_PACKAGE=oss-eol-poc-backend REG_PASS=<PAT> ./gradlew ghcrCleanup -PdryRun=true`
+- **운영 서버**: 배포할 때 `docker image prune -af --filter label=cloud.jjoon.project=oss-eol-poc`로 이 프로젝트 이미지 중 컨테이너가 쓰지 않는 것만 지운다. 라벨을 붙이기 전에 받은 이미지는 대상이 아니므로 한 번 직접 지운다.
 
 ## 롤백
-운영 서버에서 이전 태그로 되돌린다. 태그는 Jenkins 빌드 기록이나 레지스트리에서 확인한다.
+운영 서버에서 이전 태그로 되돌린다. 태그는 Jenkins 빌드 기록이나 레지스트리에서 확인한다. GHCR에는 최신 10개만 남으므로 그보다 오래된 버전으로는 롤백할 수 없다.
 ```bash
 cd /opt/projects/oss-eol-poc
 sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=<이전 태그>/' image.env
