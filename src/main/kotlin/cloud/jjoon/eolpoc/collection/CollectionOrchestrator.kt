@@ -126,7 +126,8 @@ class CollectionOrchestrator(
                 val collector = collectors[source.collectorType]
                     ?: throw CollectionException("UNSUPPORTED_COLLECTOR", "지원하지 않는 수집 방식: ${source.collectorType}")
                 fetched = collector.fetch(source.url, source.config)
-                val hash = sha256(props.ai.promptVersion + "\n" + fetched.contentText)
+                // 추출·검증에 쓰이는 출처 설정이 바뀌면 원본이 같아도 다시 처리한다
+                val hash = sha256(listOf(props.ai.promptVersion, source.config, source.trustLevel, fetched.contentText).joinToString("\n"))
 
                 val previous = runs.findFirstBySourceIdAndStatusAndIdLessThanOrderByIdDesc(source.id, CollectionStatus.SUCCESS, runId)
                 if (previous?.contentHash == hash) {

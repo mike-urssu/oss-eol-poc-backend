@@ -99,6 +99,21 @@ class CollectionPipelineTest : IntegrationTest() {
     }
 
     @Test
+    fun `원본이 같아도 출처 설정이 바뀌면 다시 추출한다`() {
+        extractor.result = ExtractionResult(listOf(pg16()))
+        collect()
+
+        opensources.updateSource(
+            lastRun().sourceId,
+            SourceRequest(FixtureServer.url(), CollectorType.WEB, TrustLevel.OFFICIAL, SourceConfig(versionPattern = """\d+(\.\d+)?""")),
+        )
+        collect()
+
+        assertEquals(false, lastRun().skippedUnchanged)
+        assertEquals(2, extractor.requests.size)
+    }
+
+    @Test
     fun `원본이 바뀌어도 값이 같으면 이력이 늘지 않는다`() {
         extractor.result = ExtractionResult(listOf(pg16()))
         collect()

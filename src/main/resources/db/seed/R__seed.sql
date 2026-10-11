@@ -13,7 +13,7 @@ INSERT INTO source_registry (opensource_id, url, collector_type, trust_level, co
 SELECT o.id, s.url, s.collector_type, 'OFFICIAL', s.config::jsonb
 FROM (VALUES
     ('postgresql',   'https://www.postgresql.org/support/versioning/', 'WEB',
-     '{"selector": "table", "versionHint": "메이저 버전(예: 17). 17.6 같은 패치 버전은 latestPatchVersion으로", "versionPattern": "\\d+"}'),
+     '{"selector": "table", "versionHint": "메이저 버전. 10 이상은 정수(예: 17), 10 미만은 두 자리(예: 9.6). 17.6, 9.6.24 같은 패치 버전은 latestPatchVersion으로", "versionPattern": "\\d{2,}|\\d\\.\\d+"}'),
     ('openssl',      'https://openssl-library.org/policies/releasestrat/index.html', 'WEB',
      '{"versionHint": "릴리스 시리즈(예: 3.0, 3.5)", "versionPattern": "\\d+\\.\\d+"}'),
     ('tomcat',       'https://tomcat.apache.org/whichversion.html', 'WEB',
