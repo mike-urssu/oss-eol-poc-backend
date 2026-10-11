@@ -3,15 +3,18 @@ package cloud.jjoon.eolpoc.validation
 import cloud.jjoon.eolpoc.extraction.ExtractedVersion
 import cloud.jjoon.eolpoc.extraction.ExtractionResult
 import cloud.jjoon.eolpoc.extraction.Quoted
-import cloud.jjoon.eolpoc.lifecycle.DatePrecision
-import cloud.jjoon.eolpoc.lifecycle.Field
-import cloud.jjoon.eolpoc.lifecycle.PreciseDate
-import cloud.jjoon.eolpoc.lifecycle.SupportDeclared
-import cloud.jjoon.eolpoc.lifecycle.VersionValues
-import cloud.jjoon.eolpoc.opensource.TrustLevel
-import cloud.jjoon.eolpoc.validation.ValidationStatus.APPROVED
-import cloud.jjoon.eolpoc.validation.ValidationStatus.REJECTED
-import cloud.jjoon.eolpoc.validation.ValidationStatus.REVIEW_REQUIRED
+import cloud.jjoon.eolpoc.lifecycle.domain.DatePrecision
+import cloud.jjoon.eolpoc.lifecycle.domain.Field
+import cloud.jjoon.eolpoc.lifecycle.domain.PreciseDate
+import cloud.jjoon.eolpoc.lifecycle.domain.SupportDeclared
+import cloud.jjoon.eolpoc.lifecycle.domain.VersionValues
+import cloud.jjoon.eolpoc.opensource.domain.TrustLevel
+import cloud.jjoon.eolpoc.validation.domain.Evidence
+import cloud.jjoon.eolpoc.validation.domain.Reason
+import cloud.jjoon.eolpoc.validation.domain.ValidationStatus
+import cloud.jjoon.eolpoc.validation.domain.ValidationStatus.APPROVED
+import cloud.jjoon.eolpoc.validation.domain.ValidationStatus.REJECTED
+import cloud.jjoon.eolpoc.validation.domain.ValidationStatus.REVIEW_REQUIRED
 import java.time.LocalDate
 import java.time.YearMonth
 

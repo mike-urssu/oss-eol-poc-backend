@@ -1,8 +1,8 @@
 package cloud.jjoon.eolpoc.collection
 
 import cloud.jjoon.eolpoc.common.EolProperties
-import cloud.jjoon.eolpoc.opensource.CollectorType
-import cloud.jjoon.eolpoc.opensource.SourceConfig
+import cloud.jjoon.eolpoc.opensource.domain.CollectorType
+import cloud.jjoon.eolpoc.opensource.domain.SourceConfig
 import org.springframework.core.retry.RetryException
 import org.springframework.core.retry.RetryPolicy
 import org.springframework.core.retry.RetryTemplate

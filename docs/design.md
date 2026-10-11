@@ -54,16 +54,30 @@
 
 ## 2. 패키지 구조
 
-기능 단위로 패키지를 나눈다. 루트 패키지는 `cloud.jjoon.eolpoc`이다.
+기능 단위로 패키지를 나누고, 각 기능 안에서 역할별 하위 패키지를 둔다. 루트 패키지는 `cloud.jjoon.eolpoc`이다.
+
+- `api/`: 컨트롤러와 HTTP 요청·응답 DTO
+- `domain/`: 저장되는 모델. 엔티티, 리포지토리, 컬럼·JSON으로 저장되는 enum과 값 타입
+- 기능 루트: 서비스와 로직, 그리고 그 로직의 입출력 타입
 
 ```
 cloud.jjoon.eolpoc
-├── opensource/    Opensource·Source 엔티티, 리포지토리, 등록·수정 API
-├── collection/    CollectionOrchestrator, CollectionScheduler, SourceFetcher(Web/Api), HtmlToText, Collection 엔티티, 수집 API
-├── extraction/    Extractor 인터페이스, AiExtractor, 출력 스키마, 프롬프트, Normalizer
-├── validation/    Validator, 검증 규칙, QuoteVerifier, DateMentionParser
-├── lifecycle/     Version·Lifecycle·Evidence·ChangeHistory 엔티티, 값 타입(VersionValues·PreciseDate·Field), EolService, EolStatusCalculator, VersionComparator, 조회 API
-├── candidate/     Candidate 엔티티, ReviewService, 검토 API
+├── opensource/    OpensourceService
+│   ├── api/       등록·수정 API (OpensourceController, OpensourceDtos)
+│   └── domain/    Opensource·Source 엔티티, SourceConfig, TrustLevel, CollectorType, 리포지토리
+├── collection/    CollectionOrchestrator, CollectionScheduler, SourceFetcher(Web/Api), HtmlToText, Fetched, CollectionException
+│   ├── api/       수집 API (CollectionController, CollectionDtos)
+│   └── domain/    CollectionRun 엔티티, CollectionStatus, Trigger, 리포지토리
+├── extraction/    Extractor 인터페이스, AiExtractor, 출력 스키마(ExtractionResult), 프롬프트
+│   └── domain/    ExtractionMethod
+├── validation/    CandidateValidator, QuoteVerifier, DateMentionParser, ValidatedCandidate, SourceRules
+│   └── domain/    Evidence, Reason, ValidationStatus
+├── lifecycle/     EolService, LifecycleQueryService, EolStatusCalculator(EolStatus, EolJudgement), VersionComparator
+│   ├── api/       조회 응답 (LifecycleDtos)
+│   └── domain/    Version·Evidence·ChangeHistory 엔티티, 값 타입(VersionValues·PreciseDate·Field), SupportDeclared, 리포지토리
+├── candidate/     ReviewService
+│   ├── api/       검토 API (ReviewController, ReviewDtos)
+│   └── domain/    Candidate 엔티티, 리포지토리
 └── common/        EolProperties(설정), Clock, 오류 처리(ProblemDetail), CORS
 ```
 

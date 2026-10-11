@@ -1,6 +1,6 @@
 package cloud.jjoon.eolpoc.validation
 
-import cloud.jjoon.eolpoc.lifecycle.PreciseDate
+import cloud.jjoon.eolpoc.lifecycle.domain.PreciseDate
 import java.text.Normalizer
 
 /** VAL-08: AI가 준 근거 문구가 원문에 실제로 있고, 값이 그 문구에서 확인되는지 검사한다. */

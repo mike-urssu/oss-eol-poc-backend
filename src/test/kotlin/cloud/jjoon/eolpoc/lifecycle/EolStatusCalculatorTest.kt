@@ -1,5 +1,6 @@
 package cloud.jjoon.eolpoc.lifecycle
 
+import cloud.jjoon.eolpoc.lifecycle.domain.SupportDeclared
 import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals

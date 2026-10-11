@@ -1,9 +1,11 @@
 package cloud.jjoon.eolpoc.candidate
 
+import cloud.jjoon.eolpoc.candidate.domain.Candidate
+import cloud.jjoon.eolpoc.candidate.domain.CandidateRepository
 import cloud.jjoon.eolpoc.common.conflict
 import cloud.jjoon.eolpoc.common.notFound
 import cloud.jjoon.eolpoc.lifecycle.EolService
-import cloud.jjoon.eolpoc.validation.ValidationStatus
+import cloud.jjoon.eolpoc.validation.domain.ValidationStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock

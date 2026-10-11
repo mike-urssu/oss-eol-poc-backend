@@ -1,27 +1,29 @@
 package cloud.jjoon.eolpoc.collection
 
+import cloud.jjoon.eolpoc.candidate.ReviewService
+import cloud.jjoon.eolpoc.collection.domain.CollectionStatus
+import cloud.jjoon.eolpoc.collection.domain.Trigger
 import cloud.jjoon.eolpoc.extraction.ExtractedVersion
+import cloud.jjoon.eolpoc.extraction.ExtractionException
 import cloud.jjoon.eolpoc.extraction.ExtractionResult
 import cloud.jjoon.eolpoc.extraction.Quoted
-import cloud.jjoon.eolpoc.candidate.ReviewService
-import cloud.jjoon.eolpoc.extraction.ExtractionException
 import cloud.jjoon.eolpoc.lifecycle.EolStatus
 import cloud.jjoon.eolpoc.lifecycle.LifecycleQueryService
-import cloud.jjoon.eolpoc.opensource.CollectorType
 import cloud.jjoon.eolpoc.opensource.OpensourceService
-import cloud.jjoon.eolpoc.opensource.SourceConfig
-import cloud.jjoon.eolpoc.opensource.SourceRequest
-import cloud.jjoon.eolpoc.opensource.TrustLevel
+import cloud.jjoon.eolpoc.opensource.api.SourceRequest
+import cloud.jjoon.eolpoc.opensource.domain.CollectorType
+import cloud.jjoon.eolpoc.opensource.domain.SourceConfig
+import cloud.jjoon.eolpoc.opensource.domain.TrustLevel
 import cloud.jjoon.eolpoc.support.FixtureServer
 import cloud.jjoon.eolpoc.support.IntegrationTest
 import org.junit.jupiter.api.BeforeEach
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.web.server.ResponseStatusException
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import org.springframework.web.server.ResponseStatusException
-import kotlin.test.assertFailsWith
 
 class CollectionPipelineTest : IntegrationTest() {
     @Autowired lateinit var opensources: OpensourceService

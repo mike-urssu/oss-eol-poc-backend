@@ -1,11 +1,16 @@
 package cloud.jjoon.eolpoc.lifecycle
 
-import cloud.jjoon.eolpoc.candidate.Candidate
-import cloud.jjoon.eolpoc.candidate.CandidateRepository
-import cloud.jjoon.eolpoc.opensource.OpensourceRepository
-import cloud.jjoon.eolpoc.opensource.SourceRepository
-import cloud.jjoon.eolpoc.validation.Reason
-import cloud.jjoon.eolpoc.validation.ValidationStatus
+import cloud.jjoon.eolpoc.candidate.domain.Candidate
+import cloud.jjoon.eolpoc.candidate.domain.CandidateRepository
+import cloud.jjoon.eolpoc.lifecycle.domain.ChangeHistory
+import cloud.jjoon.eolpoc.lifecycle.domain.ChangeHistoryRepository
+import cloud.jjoon.eolpoc.lifecycle.domain.EvidenceRepository
+import cloud.jjoon.eolpoc.lifecycle.domain.Version
+import cloud.jjoon.eolpoc.lifecycle.domain.VersionRepository
+import cloud.jjoon.eolpoc.opensource.domain.OpensourceRepository
+import cloud.jjoon.eolpoc.opensource.domain.SourceRepository
+import cloud.jjoon.eolpoc.validation.domain.Reason
+import cloud.jjoon.eolpoc.validation.domain.ValidationStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
