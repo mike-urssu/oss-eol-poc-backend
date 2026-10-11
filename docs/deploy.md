@@ -36,9 +36,9 @@ GitHub ──webhook──▶ Jenkins: Test → Build & push image(Jib) → Depl
 - 배포 계정(예: `deploy`)을 만들고 `docker` 그룹에 넣는다.
 - 배포 디렉터리를 만들고 `app.env`를 작성한다.
   ```bash
-  sudo mkdir -p /opt/projects/oss-eol-poc && sudo chown deploy: /opt/projects/oss-eol-poc
-  cp app.env.example /opt/projects/oss-eol-poc/app.env   # 값 채우기
-  chmod 600 /opt/projects/oss-eol-poc/app.env
+  sudo mkdir -p /opt/projects/oss-eol-poc/backend && sudo chown deploy: /opt/projects/oss-eol-poc/backend
+  cp app.env.example /opt/projects/oss-eol-poc/backend/app.env   # 값 채우기
+  chmod 600 /opt/projects/oss-eol-poc/backend/app.env
   ```
 - 배포 계정으로 GHCR에 한 번 로그인한다(`read:packages` 권한 PAT): `docker login ghcr.io -u mike-urssu`
 - Jenkins의 SSH 공개키를 배포 계정의 `~/.ssh/authorized_keys`에 넣는다.
@@ -78,7 +78,7 @@ GitHub ──webhook──▶ Jenkins: Test → Build & push image(Jib) → Depl
 ## 롤백
 운영 서버에서 이전 태그로 되돌린다. 태그는 Jenkins 빌드 기록이나 레지스트리에서 확인한다. GHCR에는 최신 10개만 남으므로 그보다 오래된 버전으로는 롤백할 수 없다.
 ```bash
-cd /opt/projects/oss-eol-poc
+cd /opt/projects/oss-eol-poc/backend
 sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=<이전 태그>/' image.env
 docker compose --env-file image.env up -d
 ```
@@ -86,7 +86,7 @@ DB 스키마는 되돌려지지 않는다. Flyway 마이그레이션을 추가�
 
 ## 운영 확인
 ```bash
-cd /opt/projects/oss-eol-poc
+cd /opt/projects/oss-eol-poc/backend
 docker compose --env-file image.env ps
 docker compose --env-file image.env logs -f app
 curl -s https://oss-eol-api.jjoon.cloud/api/opensources

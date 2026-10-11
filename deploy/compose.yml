@@ -1,7 +1,9 @@
-# 운영 서버의 배포 디렉터리(예: /opt/projects/oss-eol-poc)에 Jenkins가 복사한다.
+# 운영 서버의 배포 디렉터리(예: /opt/projects/oss-eol-poc/backend)에 Jenkins가 복사한다.
 # image.env: Jenkins가 배포 때마다 쓰는 이미지 이름·태그 / app.env: 서버에서 직접 관리하는 비밀값
 # 외부 포트는 열지 않는다. Traefik(proxy 네트워크)이 oss-eol-api.jjoon.cloud로 들어온 요청을 전달하고,
 # DB는 postgresql 네트워크의 기존 PostgreSQL 컨테이너에 붙는다.
+# 프로젝트 이름을 고정한다. 생략하면 디렉터리 이름(backend)이 되어 다른 프로젝트와 겹칠 수 있다.
+name: oss-eol-poc-backend
 services:
   app:
     image: ${IMAGE}:${IMAGE_TAG}
