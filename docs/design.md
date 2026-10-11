@@ -62,7 +62,7 @@ cloud.jjoon.eolpoc
 ├── collection/    CollectionOrchestrator, CollectionScheduler, SourceFetcher(Web/Api), HtmlToText, Collection 엔티티, 수집 API
 ├── extraction/    Extractor 인터페이스, AiExtractor, 출력 스키마, 프롬프트, Normalizer
 ├── validation/    Validator, 검증 규칙, QuoteVerifier, DateMentionParser
-├── lifecycle/     Version·Lifecycle·Evidence·ChangeHistory 엔티티, EolService, EolStatusCalculator, VersionComparator, 조회 API
+├── lifecycle/     Version·Lifecycle·Evidence·ChangeHistory 엔티티, 값 타입(VersionValues·PreciseDate·Field), EolService, EolStatusCalculator, VersionComparator, 조회 API
 ├── candidate/     Candidate 엔티티, ReviewService, 검토 API
 └── common/        EolProperties(설정), Clock, 오류 처리(ProblemDetail), CORS
 ```

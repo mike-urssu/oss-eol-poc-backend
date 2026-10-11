@@ -3,7 +3,11 @@ package cloud.jjoon.eolpoc.validation
 import cloud.jjoon.eolpoc.extraction.ExtractedVersion
 import cloud.jjoon.eolpoc.extraction.ExtractionResult
 import cloud.jjoon.eolpoc.extraction.Quoted
+import cloud.jjoon.eolpoc.lifecycle.DatePrecision
+import cloud.jjoon.eolpoc.lifecycle.Field
+import cloud.jjoon.eolpoc.lifecycle.PreciseDate
 import cloud.jjoon.eolpoc.lifecycle.SupportDeclared
+import cloud.jjoon.eolpoc.lifecycle.VersionValues
 import cloud.jjoon.eolpoc.opensource.TrustLevel
 import java.time.LocalDate
 import kotlin.test.Test

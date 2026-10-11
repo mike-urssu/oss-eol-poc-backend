@@ -1,5 +1,7 @@
 package cloud.jjoon.eolpoc.validation
 
+import cloud.jjoon.eolpoc.lifecycle.DatePrecision
+import cloud.jjoon.eolpoc.lifecycle.PreciseDate
 import java.text.Normalizer
 import java.time.LocalDate
 import java.time.YearMonth

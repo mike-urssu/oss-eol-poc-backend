@@ -1,6 +1,5 @@
 package cloud.jjoon.eolpoc.lifecycle
 
-import cloud.jjoon.eolpoc.validation.Field
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated

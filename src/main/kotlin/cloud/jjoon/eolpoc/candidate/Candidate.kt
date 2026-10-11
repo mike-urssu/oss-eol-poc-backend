@@ -1,14 +1,14 @@
 package cloud.jjoon.eolpoc.candidate
 
 import cloud.jjoon.eolpoc.extraction.ExtractionMethod
+import cloud.jjoon.eolpoc.lifecycle.DatePrecision
+import cloud.jjoon.eolpoc.lifecycle.PreciseDate
 import cloud.jjoon.eolpoc.lifecycle.SupportDeclared
-import cloud.jjoon.eolpoc.validation.DatePrecision
+import cloud.jjoon.eolpoc.lifecycle.VersionValues
 import cloud.jjoon.eolpoc.validation.Evidence
-import cloud.jjoon.eolpoc.validation.PreciseDate
 import cloud.jjoon.eolpoc.validation.Reason
 import cloud.jjoon.eolpoc.validation.ValidatedCandidate
 import cloud.jjoon.eolpoc.validation.ValidationStatus
-import cloud.jjoon.eolpoc.validation.VersionValues
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated

@@ -1,9 +1,6 @@
 package cloud.jjoon.eolpoc.lifecycle
 
 import cloud.jjoon.eolpoc.opensource.Opensource
-import cloud.jjoon.eolpoc.validation.DatePrecision
-import cloud.jjoon.eolpoc.validation.PreciseDate
-import cloud.jjoon.eolpoc.validation.VersionValues
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType

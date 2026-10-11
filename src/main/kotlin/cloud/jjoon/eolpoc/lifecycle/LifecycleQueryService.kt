@@ -13,8 +13,6 @@ import cloud.jjoon.eolpoc.opensource.Opensource
 import cloud.jjoon.eolpoc.opensource.OpensourceRepository
 import cloud.jjoon.eolpoc.opensource.SourceRepository
 import cloud.jjoon.eolpoc.opensource.TrustLevel
-import cloud.jjoon.eolpoc.validation.DatePrecision
-import cloud.jjoon.eolpoc.validation.PreciseDate
 import cloud.jjoon.eolpoc.validation.Reason
 import cloud.jjoon.eolpoc.validation.ValidationStatus
 import org.springframework.stereotype.Service
@@ -256,7 +254,7 @@ class LifecycleQueryService(
     }
 
     private fun changes(v: Version?, candidate: Candidate): List<ChangeDto> {
-        val current = v?.values() ?: cloud.jjoon.eolpoc.validation.VersionValues()
+        val current = v?.values() ?: VersionValues()
         val proposed = candidate.values()
         return current.changedFields(proposed).map { field ->
             ChangeDto(field.name, current.display(field), proposed.display(field), candidate.evidence.firstOrNull { it.field == field }?.quote)
