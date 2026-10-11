@@ -18,7 +18,6 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
-import org.springframework.data.jpa.repository.JpaRepository
 import java.time.Instant
 import java.time.LocalDate
 
@@ -83,13 +82,4 @@ class Candidate(
             )
         }
     }
-}
-
-interface CandidateRepository : JpaRepository<Candidate, Long> {
-    fun findAllByOpensourceIdAndVersionOrderByIdDesc(opensourceId: Long, version: String): List<Candidate>
-    fun findAllByOpensourceIdOrderByIdDesc(opensourceId: Long): List<Candidate>
-    fun findAllByOpensourceIdAndSourceIdAndVersionAndValidationStatusAndReviewedAtIsNull(
-        opensourceId: Long, sourceId: Long, version: String, status: ValidationStatus,
-    ): List<Candidate>
-    fun findAllByValidationStatusAndReviewedAtIsNullOrderById(status: ValidationStatus): List<Candidate>
 }

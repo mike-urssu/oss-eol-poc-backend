@@ -7,7 +7,6 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
-import org.springframework.data.jpa.repository.JpaRepository
 import java.time.Instant
 
 @Entity
@@ -23,8 +22,4 @@ class ChangeHistory(
 ) {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null
-}
-
-interface ChangeHistoryRepository : JpaRepository<ChangeHistory, Long> {
-    fun findAllByVersionIdOrderByIdDesc(versionId: Long): List<ChangeHistory>
 }

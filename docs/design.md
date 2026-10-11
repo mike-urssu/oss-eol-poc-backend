@@ -67,6 +67,7 @@ cloud.jjoon.eolpoc
 └── common/        EolProperties(설정), Clock, 오류 처리(ProblemDetail), CORS
 ```
 
+- 파일 하나에 최상위 타입 하나를 두고 파일 이름을 타입 이름과 같게 한다(`Version`은 `Version.kt`, `VersionRepository`는 `VersionRepository.kt`). HTTP 요청·응답 DTO만 기능별 `*Dtos.kt`(예: `LifecycleDtos.kt`)에 묶는다.
 - 인터페이스는 구현을 실제로 바꿔 끼우는 곳에만 만든다. 현재는 `Extractor`(AiExtractor + 테스트용 Fake, 향후 전용 Parser) 하나뿐이다. 수집 방식(Web/Api)은 본문 변환 한 단계만 달라서 `SourceFetcher` 안에서 나누고, 테스트는 HTTP 자체를 로컬 서버로 대체한다.
 - 전용 Parser(COL-02, P2)는 필요해질 때 `extraction/parser/`에 추가하고 `source_registry.parser_key`로 선택한다.
 

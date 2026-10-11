@@ -8,15 +8,6 @@ import org.springframework.transaction.annotation.Transactional
 import java.net.URI
 import java.time.Instant
 
-data class SourceRequest(
-    val url: String,
-    val collectorType: CollectorType,
-    val trustLevel: TrustLevel,
-    val config: SourceConfig = SourceConfig(),
-    val parserKey: String? = null,
-    val active: Boolean = true,
-)
-
 /** Opensource·출처 등록과 수정 (REG-01~04). 삭제 대신 비활성화한다. */
 @Service
 @Transactional

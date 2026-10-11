@@ -14,26 +14,6 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 
-data class OpensourceRequest(
-    val slug: String = "",
-    val name: String,
-    val homepageUrl: String? = null,
-    val description: String? = null,
-    val active: Boolean = true,
-)
-
-data class OpensourceResponse(val slug: String, val name: String, val homepageUrl: String?, val description: String?, val active: Boolean)
-
-data class SourceResponse(
-    val id: Long,
-    val url: String,
-    val collectorType: CollectorType,
-    val trustLevel: TrustLevel,
-    val config: SourceConfig,
-    val parserKey: String?,
-    val active: Boolean,
-)
-
 @RestController
 @RequestMapping("/api")
 class OpensourceController(

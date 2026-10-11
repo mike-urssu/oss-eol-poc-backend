@@ -3,12 +3,6 @@ package cloud.jjoon.eolpoc.lifecycle
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
-enum class EolStatus { SUPPORTED, EOL_SOON, EOL, UNKNOWN }
-
-enum class SupportDeclared { SUPPORTED, EOL }
-
-data class EolJudgement(val status: EolStatus, val rule: String, val message: String)
-
 /** 요구사항 3.1 판정 규칙. 보안 지원 종료일은 사용하지 않는다(Q1). */
 object EolStatusCalculator {
     fun judge(eolDate: LocalDate?, declared: SupportDeclared?, today: LocalDate, thresholdDays: Int): EolJudgement {

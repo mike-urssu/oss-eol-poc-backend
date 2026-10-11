@@ -15,11 +15,6 @@ import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientResponseException
 import java.net.URI
 
-data class Fetched(val httpStatus: Int, val rawContent: String, val contentText: String)
-
-class CollectionException(val code: String, message: String, val httpStatus: Int? = null, cause: Throwable? = null) :
-    RuntimeException(message, cause)
-
 /**
  * 출처에서 원본을 가져와 AI에 보낼 텍스트로 바꾼다. 정보 추출은 하지 않는다(설계 4.1).
  * WEB은 HTML을 텍스트로 바꾸고, API는 응답 본문을 그대로 쓴다.
