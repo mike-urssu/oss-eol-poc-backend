@@ -40,6 +40,14 @@ class ApiTest : IntegrationTest() {
     }
 
     @Test
+    fun `헬스 체크는 DB 연결을 포함해 UP을 돌려준다`() {
+        mvc.get("/actuator/health").andExpect {
+            status { isOk() }
+            jsonPath("$.status") { value("UP") }
+        }
+    }
+
+    @Test
     fun `목록은 이름 검색과 EOL 상태 필터를 지원한다`() {
         register("postgresql", "PostgreSQL")
         register("openssl", "OpenSSL")

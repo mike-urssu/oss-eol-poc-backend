@@ -89,5 +89,5 @@ DB 스키마는 되돌려지지 않는다. Flyway 마이그레이션을 추가�
 cd /opt/projects/oss-eol-poc/backend
 docker compose --env-file image.env ps
 docker compose --env-file image.env logs -f app
-curl -s https://oss-eol-api.jjoon.cloud/api/opensources
+curl -s https://oss-eol-api.jjoon.cloud/actuator/health   # {"status":"UP"}이면 DB 연결까지 정상
 ```

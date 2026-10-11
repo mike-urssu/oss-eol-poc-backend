@@ -67,8 +67,8 @@ pipeline {
 
         stage('Verify') {
             steps {
-                // Flyway 마이그레이션까지 끝나야 응답하므로 넉넉히 기다린다.
-                sh 'curl -fsS --retry 20 --retry-delay 6 --retry-all-errors "$APP_URL/api/opensources" > /dev/null'
+                // Flyway 마이그레이션까지 끝나야 응답하므로 넉넉히 기다린다. DB에 연결되지 않으면 503(DOWN)이라 재시도한다.
+                sh 'curl -fsS --retry 20 --retry-delay 6 --retry-all-errors "$APP_URL/actuator/health" > /dev/null'
             }
         }
 

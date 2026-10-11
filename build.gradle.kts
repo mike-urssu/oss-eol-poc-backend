@@ -31,6 +31,7 @@ repositories {
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.flywaydb:flyway-database-postgresql")
     implementation("tools.jackson.module:jackson-module-kotlin")
