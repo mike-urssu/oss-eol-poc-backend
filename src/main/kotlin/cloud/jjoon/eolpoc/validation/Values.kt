@@ -41,6 +41,9 @@ data class VersionValues(
         Field.SECURITY_EOL_DATE -> securityEolDate?.display()
         Field.SUPPORT -> support?.name
     }
+
+    /** 값이 다른 필드. 날짜는 정밀도까지 비교하고, 한쪽만 null인 경우도 포함한다. */
+    fun changedFields(other: VersionValues): List<Field> = Field.entries.filter { get(it) != other.get(it) }
 }
 
 data class Evidence(val field: Field, val value: String, val quote: String)

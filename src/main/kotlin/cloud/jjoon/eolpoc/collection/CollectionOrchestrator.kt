@@ -2,7 +2,6 @@ package cloud.jjoon.eolpoc.collection
 
 import cloud.jjoon.eolpoc.candidate.Candidate
 import cloud.jjoon.eolpoc.candidate.CandidateRepository
-import cloud.jjoon.eolpoc.candidate.ReviewService
 import cloud.jjoon.eolpoc.common.EolProperties
 import cloud.jjoon.eolpoc.common.conflict
 import cloud.jjoon.eolpoc.common.notFound
@@ -21,7 +20,6 @@ import cloud.jjoon.eolpoc.opensource.SourceRepository
 import cloud.jjoon.eolpoc.opensource.TrustLevel
 import cloud.jjoon.eolpoc.validation.CandidateValidator
 import cloud.jjoon.eolpoc.validation.SourceRules
-import cloud.jjoon.eolpoc.validation.ValidationStatus
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import org.springframework.boot.context.event.ApplicationReadyEvent
@@ -45,16 +43,14 @@ class CollectionOrchestrator(
     private val candidates: CandidateRepository,
     private val versions: VersionRepository,
     private val eolService: EolService,
-    private val reviewService: ReviewService,
     private val extractor: Extractor,
-    collectors: List<Collector>,
+    private val fetcher: SourceFetcher,
     private val props: EolProperties,
     private val clock: Clock,
     private val tx: TransactionTemplate,
     private val collectionExecutor: Executor,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
-    private val collectors = collectors.associateBy { it.type }
 
     // ponytail: JVM 메모리 잠금이라 인스턴스 1대에서만 유효(설계 D11). 여러 대로 늘리면 PostgreSQL advisory lock으로 바꾼다.
     private val running = ConcurrentHashMap.newKeySet<Long>()
@@ -123,9 +119,7 @@ class CollectionOrchestrator(
         MDC.putCloseable("collectionId", runId.toString()).use {
             var fetched: Fetched? = null
             try {
-                val collector = collectors[source.collectorType]
-                    ?: throw CollectionException("UNSUPPORTED_COLLECTOR", "지원하지 않는 수집 방식: ${source.collectorType}")
-                fetched = collector.fetch(source.url, source.config)
+                fetched = fetcher.fetch(source.collectorType, source.url, source.config)
                 // 추출·검증에 쓰이는 출처 설정이 바뀌면 원본이 같아도 다시 처리한다
                 val hash = sha256(listOf(props.ai.promptVersion, source.config, source.trustLevel, fetched.contentText).joinToString("\n"))
 
@@ -156,15 +150,7 @@ class CollectionOrchestrator(
                 LocalDate.now(clock),
             )
             for (v in validated) {
-                val candidate = candidates.save(Candidate.of(v, runId, opensourceId, source.id, ExtractionMethod.AI, now))
-                when (candidate.validationStatus) {
-                    ValidationStatus.APPROVED -> eolService.apply(candidate, SYSTEM, now)
-                    ValidationStatus.REVIEW_REQUIRED -> {
-                        reviewService.supersedeOlder(candidate, now)
-                        eolService.ensureVersion(opensourceId, candidate.version) // D10: 검토 대기 신규 버전도 목록에 보인다
-                    }
-                    ValidationStatus.REJECTED -> Unit
-                }
+                eolService.accept(candidates.save(Candidate.of(v, runId, opensourceId, source.id, ExtractionMethod.AI, now)), now)
             }
             runs.findById(runId).orElseThrow().apply {
                 fill(fetched, hash)
@@ -223,8 +209,4 @@ class CollectionOrchestrator(
         val config: SourceConfig,
         val opensourceName: String,
     )
-
-    companion object {
-        const val SYSTEM = "SYSTEM"
-    }
 }

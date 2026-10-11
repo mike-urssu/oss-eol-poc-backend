@@ -59,7 +59,7 @@
 ```
 cloud.jjoon.eolpoc
 ├── opensource/    Opensource·Source 엔티티, 리포지토리, 등록·수정 API
-├── collection/    CollectionOrchestrator, CollectionScheduler, Collector(Web/Api), HtmlToText, Collection 엔티티, 수집 API
+├── collection/    CollectionOrchestrator, CollectionScheduler, SourceFetcher(Web/Api), HtmlToText, Collection 엔티티, 수집 API
 ├── extraction/    Extractor 인터페이스, AiExtractor, 출력 스키마, 프롬프트, Normalizer
 ├── validation/    Validator, 검증 규칙, QuoteVerifier, DateMentionParser
 ├── lifecycle/     Version·Lifecycle·Evidence·ChangeHistory 엔티티, EolService, EolStatusCalculator, VersionComparator, 조회 API
@@ -67,7 +67,7 @@ cloud.jjoon.eolpoc
 └── common/        EolProperties(설정), Clock, 오류 처리(ProblemDetail), CORS
 ```
 
-- 인터페이스는 구현이 둘 이상일 때만 만든다. 현재는 `Extractor`(AiExtractor + 테스트용 Fake, 향후 전용 Parser)와 `Collector`(Web/Api) 두 개뿐이다.
+- 인터페이스는 구현을 실제로 바꿔 끼우는 곳에만 만든다. 현재는 `Extractor`(AiExtractor + 테스트용 Fake, 향후 전용 Parser) 하나뿐이다. 수집 방식(Web/Api)은 본문 변환 한 단계만 달라서 `SourceFetcher` 안에서 나누고, 테스트는 HTTP 자체를 로컬 서버로 대체한다.
 - 전용 Parser(COL-02, P2)는 필요해질 때 `extraction/parser/`에 추가하고 `source_registry.parser_key`로 선택한다.
 
 ---
@@ -118,13 +118,10 @@ Orchestrator            Collector          Extractor(AI)        Normalizer/Valid
 
 ## 4. 컴포넌트 상세
 
-### 4.1 Collector
+### 4.1 SourceFetcher (수집)
 
 ```kotlin
-interface Collector {
-    val type: CollectorType               // API, WEB
-    fun fetch(source: Source): Fetched
-}
+fun fetch(type: CollectorType, url: String, config: SourceConfig): Fetched
 
 data class Fetched(
     val httpStatus: Int,
@@ -133,11 +130,11 @@ data class Fetched(
 )
 ```
 
-| 구현 | 처리 |
+| 수집 방식 | 처리 |
 |------|------|
-| `WebCollector` | `RestClient` GET → Jsoup 파싱 → `config.selector`가 있으면 해당 영역만 선택 → `HtmlToText`로 텍스트 변환 |
-| `ApiCollector` | `RestClient` GET → 응답 본문(JSON)을 그대로 `contentText`로 사용 |
-| `GitHubCollector` | 대상 중 필요한 출처가 생길 때 추가 |
+| `WEB` | `RestClient` GET → Jsoup 파싱 → `config.selector`가 있으면 해당 영역만 선택 → `HtmlToText`로 텍스트 변환 |
+| `API` | `RestClient` GET → 응답 본문(JSON)을 그대로 `contentText`로 사용 |
+| `GITHUB` | 대상 중 필요한 출처가 생길 때 `when` 분기로 추가. 지금은 `UNSUPPORTED_COLLECTOR`로 실패한다 |
 
 - 공통 HTTP 설정(COL-07): 연결 5초·읽기 30초 타임아웃, `User-Agent` 설정값, 2xx 외 응답은 예외. 재시도는 Spring Framework 7의 `@Retryable`(최대 2회, 지수 백오프)을 사용한다.
 - **`HtmlToText`**: `script`, `style`, `nav`, `footer`를 제거하고, 블록 요소와 `<br>`, `<tr>`은 줄바꿈, `<td>`/`<th>`는 ` | `로 이어 붙인다. 표의 행 구조를 유지해야 AI가 "버전 ↔ 종료일" 대응을 정확히 읽는다.
@@ -275,9 +272,13 @@ AI 출력(`ExtractedVersion`)을 후보(`eol_candidate`) 형태로 바꾼다. **
 ### 4.5 EolService
 
 ```kotlin
-@Transactional
-fun apply(candidate: Candidate, changedBy: String)   // changedBy: "SYSTEM" 또는 검토자
+fun accept(candidate: Candidate, now: Instant)                     // 수집: 검증 상태에 따라 처리
+fun apply(candidate: Candidate, changedBy: String, now: Instant)   // 반영. changedBy: "SYSTEM" 또는 검토자
 ```
+
+`accept`는 수집에서 나온 후보의 처리 정책을 한곳에 둔다: `APPROVED`는 `apply`, `REVIEW_REQUIRED`는 같은 출처·버전의 이전 대기 후보를 대체(D9)하고 버전만 등록(D10), `REJECTED`는 후보 기록만 남긴다. 검토 승인(`ReviewService.approve`)은 `apply`를 직접 부른다.
+
+`apply`:
 
 1. `oss_version`을 `(opensource_id, version)`으로 조회하고 없으면 생성한다(STO-08).
 2. `oss_lifecycle`을 조회하고 없으면 생성한다.

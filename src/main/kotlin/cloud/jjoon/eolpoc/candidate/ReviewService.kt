@@ -3,7 +3,6 @@ package cloud.jjoon.eolpoc.candidate
 import cloud.jjoon.eolpoc.common.conflict
 import cloud.jjoon.eolpoc.common.notFound
 import cloud.jjoon.eolpoc.lifecycle.EolService
-import cloud.jjoon.eolpoc.validation.Reason
 import cloud.jjoon.eolpoc.validation.ValidationStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -28,16 +27,6 @@ class ReviewService(
 
     fun reject(id: Long, reviewer: String?, comment: String?): Candidate =
         pending(id).apply { close(ValidationStatus.REJECTED, reviewer ?: DEFAULT_REVIEWER, comment, Instant.now(clock)) }
-
-    /** D9: 같은 출처·버전의 미처리 검토 후보는 새 검토 후보로 대체한다. */
-    fun supersedeOlder(newer: Candidate, now: Instant) {
-        candidates.findAllByOpensourceIdAndSourceIdAndVersionAndValidationStatusAndReviewedAtIsNull(
-            newer.opensourceId, newer.sourceId, newer.version, ValidationStatus.REVIEW_REQUIRED,
-        ).filter { it.id != newer.id }.forEach {
-            it.validationReasons += Reason("SUPERSEDED", null, "후보 ${newer.id}(으)로 대체됨", ValidationStatus.REJECTED)
-            it.close(ValidationStatus.REJECTED, "SYSTEM", null, now)
-        }
-    }
 
     private fun pending(id: Long): Candidate {
         val candidate = candidates.findById(id).orElse(null) ?: throw notFound("후보를 찾을 수 없습니다: $id")

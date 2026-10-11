@@ -137,21 +137,13 @@ object CandidateValidator {
      */
     private fun checkChanges(current: VersionValues?, candidate: VersionValues): List<Reason> {
         if (current == null) return emptyList()
-        val patchRemoved = if (current.latestPatchVersion != null && candidate.latestPatchVersion == null) {
-            listOf(Reason("VALUE_CHANGED", Field.LATEST_PATCH_VERSION, "승인된 값 ${current.latestPatchVersion} → 후보 값 없음", REVIEW_REQUIRED))
-        } else emptyList()
-        return patchRemoved + listOf(
-            Field.RELEASE_DATE to { v: VersionValues -> v.releaseDate },
-            Field.EOL_DATE to { v: VersionValues -> v.eolDate },
-            Field.SECURITY_EOL_DATE to { v: VersionValues -> v.securityEolDate },
-            Field.SUPPORT to { v: VersionValues -> v.support },
-        ).mapNotNull { (field, get) ->
-            val old = get(current)
-            if (old != null && old != get(candidate)) {
+        return current.changedFields(candidate)
+            .filter { current.get(it) != null }
+            .filter { it != Field.LATEST_PATCH_VERSION || candidate.latestPatchVersion == null }
+            .map { field ->
                 val proposed = candidate.display(field) ?: "없음"
                 Reason("VALUE_CHANGED", field, "승인된 값 ${current.display(field)} → 후보 값 $proposed", REVIEW_REQUIRED)
-            } else null
-        }
+            }
     }
 
     private fun strictest(reasons: List<Reason>): ValidationStatus = when {

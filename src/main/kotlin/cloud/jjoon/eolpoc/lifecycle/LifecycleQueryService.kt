@@ -14,7 +14,6 @@ import cloud.jjoon.eolpoc.opensource.OpensourceRepository
 import cloud.jjoon.eolpoc.opensource.SourceRepository
 import cloud.jjoon.eolpoc.opensource.TrustLevel
 import cloud.jjoon.eolpoc.validation.DatePrecision
-import cloud.jjoon.eolpoc.validation.Field
 import cloud.jjoon.eolpoc.validation.PreciseDate
 import cloud.jjoon.eolpoc.validation.Reason
 import cloud.jjoon.eolpoc.validation.ValidationStatus
@@ -259,7 +258,7 @@ class LifecycleQueryService(
     private fun changes(v: Version?, candidate: Candidate): List<ChangeDto> {
         val current = v?.values() ?: cloud.jjoon.eolpoc.validation.VersionValues()
         val proposed = candidate.values()
-        return Field.entries.filter { current.get(it) != proposed.get(it) }.map { field ->
+        return current.changedFields(proposed).map { field ->
             ChangeDto(field.name, current.display(field), proposed.display(field), candidate.evidence.firstOrNull { it.field == field }?.quote)
         }
     }
