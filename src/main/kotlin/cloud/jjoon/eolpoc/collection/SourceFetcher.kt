@@ -64,10 +64,9 @@ class SourceFetcher(props: EolProperties) {
         retry.execute {
             val response = client.get().uri(URI(url)).retrieve().toEntity(String::class.java)
             response.statusCode.value() to (response.body ?: "")
-        }!!
+        }
     } catch (e: RetryException) {
-        val cause = e.cause ?: e
-        when (cause) {
+        when (val cause = e.cause) {
             is RestClientResponseException ->
                 throw CollectionException("HTTP_ERROR", "HTTP ${cause.statusCode.value()} ($url)", cause.statusCode.value(), cause)
             else -> throw CollectionException("FETCH_ERROR", "${cause.message} ($url)", null, cause)

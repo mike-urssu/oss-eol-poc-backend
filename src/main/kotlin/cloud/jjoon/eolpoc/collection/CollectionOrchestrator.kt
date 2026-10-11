@@ -13,7 +13,6 @@ import cloud.jjoon.eolpoc.extraction.Extractor
 import cloud.jjoon.eolpoc.lifecycle.EolService
 import cloud.jjoon.eolpoc.lifecycle.VersionRepository
 import cloud.jjoon.eolpoc.opensource.CollectorType
-import cloud.jjoon.eolpoc.opensource.Opensource
 import cloud.jjoon.eolpoc.opensource.OpensourceRepository
 import cloud.jjoon.eolpoc.opensource.SourceConfig
 import cloud.jjoon.eolpoc.opensource.SourceRepository
@@ -57,9 +56,8 @@ class CollectionOrchestrator(
 
     /** 수동 재수집(SCH-02): 수집 행을 먼저 만들어 ID를 돌려주고 처리는 비동기로 한다. 이미 수집 중이면 409. */
     fun trigger(slug: String, sourceId: Long?, trigger: Trigger): List<Long> {
-        val opensource = opensources.findBySlug(slug) ?: throw notFound("Opensource를 찾을 수 없습니다: $slug")
-        val targets = targetSources(opensource, sourceId)
-        val opensourceId = opensource.id!!
+        val opensourceId = (opensources.findBySlug(slug) ?: throw notFound("Opensource를 찾을 수 없습니다: $slug")).id!!
+        val targets = targetSourceIds(opensourceId, sourceId)
         if (!running.add(opensourceId)) throw conflict("이미 수집 중입니다: $slug")
         try {
             val ids = createRuns(opensourceId, targets, trigger)
@@ -83,7 +81,7 @@ class CollectionOrchestrator(
             val opensourceId = opensource.id!!
             if (!running.add(opensourceId)) continue
             try {
-                createRuns(opensourceId, targetSources(opensource, null), Trigger.SCHEDULED).forEach(::process)
+                createRuns(opensourceId, targetSourceIds(opensourceId, null), Trigger.SCHEDULED).forEach(::process)
             } finally {
                 running.remove(opensourceId)
             }
@@ -92,30 +90,27 @@ class CollectionOrchestrator(
 
     @EventListener(ApplicationReadyEvent::class)
     fun closeInterruptedRuns() {
-        val closed = tx.execute { runs.closeInterrupted(Instant.now(clock)) } ?: 0
+        val closed = tx.execute { runs.closeInterrupted(Instant.now(clock)) }
         if (closed > 0) log.warn("끝나지 못한 수집 {}건을 INTERRUPTED로 닫았습니다", closed)
     }
 
-    private fun targetSources(opensource: Opensource, sourceId: Long?): List<SourceSnapshot> {
-        val all = sources.findAllByOpensourceIdOrderById(opensource.id!!)
+    private fun targetSourceIds(opensourceId: Long, sourceId: Long?): List<Long> {
+        val all = sources.findAllByOpensourceIdOrderById(opensourceId)
         val selected = if (sourceId == null) all.filter { it.active }
         else all.filter { it.id == sourceId }.ifEmpty { throw notFound("출처를 찾을 수 없습니다: $sourceId") }
-        return selected.map { SourceSnapshot(it.id!!, it.url, it.collectorType, it.trustLevel, it.config, opensource.name) }
+        return selected.map { it.id!! }
     }
 
-    private fun createRuns(opensourceId: Long, targets: List<SourceSnapshot>, trigger: Trigger): List<Long> = tx.execute {
-        targets.map { source ->
-            val run = runs.save(CollectionRun(opensourceId, source.id, trigger, Instant.now(clock)))
-            run.id!!
-        }
-    }!!
+    private fun createRuns(opensourceId: Long, sourceIds: List<Long>, trigger: Trigger): List<Long> = tx.execute {
+        sourceIds.map { runs.save(CollectionRun(opensourceId, it, trigger, Instant.now(clock))).id!! }
+    }
 
     private fun process(runId: Long) {
         val (opensourceId, source) = tx.execute {
             val run = runs.findById(runId).orElseThrow()
             val s = sources.findById(run.sourceId).orElseThrow()
             run.opensourceId to SourceSnapshot(s.id!!, s.url, s.collectorType, s.trustLevel, s.config, s.opensource.name)
-        }!!
+        }
         MDC.putCloseable("collectionId", runId.toString()).use {
             var fetched: Fetched? = null
             try {

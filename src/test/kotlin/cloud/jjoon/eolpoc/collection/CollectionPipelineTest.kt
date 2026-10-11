@@ -144,7 +144,7 @@ class CollectionPipelineTest : IntegrationTest() {
         )
         assertEquals("REVIEW_REQUIRED", query.detail("postgresql").versions.single { it.version == "16" }.validationStatus?.name)
 
-        reviews.approve(pending.pendingReview!!.candidateId, "kim", "공지 확인")
+        reviews.approve(pending.pendingReview.candidateId, "kim", "공지 확인")
 
         val approved = query.versionDetail("postgresql", "16")
         assertEquals("2028-11-16", approved.eolDate?.date.toString())
