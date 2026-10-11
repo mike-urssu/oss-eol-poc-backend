@@ -10,7 +10,7 @@ pipeline {
         REGISTRY_CRED     = 'ghcr-credentials'              // Username with password: GitHub 사용자명 + PAT(write:packages)
         DEPLOY_SSH_CRED   = 'deploy-ssh-key'                // SSH Username with private key: 운영 서버 배포 계정의 개인키
         DEPLOY_DIR        = '/opt/projects/oss-eol-poc'
-        APP_URL           = 'https://oss-poc-api.jjoon.cloud'
+        APP_URL           = 'https://oss-eol-api.jjoon.cloud'
         GHCR_PACKAGE      = 'oss-eol-poc-backend'
         KEEP_IMAGES       = '10'                            // GHCR에 남길 최신 이미지 수
     }

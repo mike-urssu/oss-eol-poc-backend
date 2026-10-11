@@ -1,6 +1,6 @@
 # 운영 배포 (Jenkins)
 
-`main` 브랜치를 Jenkins가 빌드해 운영 서버 1대에 Docker로 배포하고, Traefik을 통해 `https://oss-poc-api.jjoon.cloud`로 서비스한다. 비밀값(DB 비밀번호, Anthropic API 키)은 Jenkins를 거치지 않고 운영 서버의 `app.env`에만 둔다.
+`main` 브랜치를 Jenkins가 빌드해 운영 서버 1대에 Docker로 배포하고, Traefik을 통해 `https://oss-eol-api.jjoon.cloud`로 서비스한다. 비밀값(DB 비밀번호, Anthropic API 키)은 Jenkins를 거치지 않고 운영 서버의 `app.env`에만 둔다.
 
 ```
 GitHub ──webhook──▶ Jenkins: Test → Build & push image(Jib) → Deploy(SSH) → Verify → Clean up registry
@@ -8,7 +8,7 @@ GitHub ──webhook──▶ Jenkins: Test → Build & push image(Jib) → Depl
                                   ghcr.io ◀──────────────────── pull ── 운영 서버 (docker compose)
 
  운영 서버:  Traefik ──(proxy 네트워크)──▶ app ──(postgresql 네트워크)──▶ PostgreSQL 컨테이너
-             oss-poc-api.jjoon.cloud
+             oss-eol-api.jjoon.cloud
 ```
 
 | 파일 | 역할 |
@@ -32,7 +32,7 @@ GitHub ──webhook──▶ Jenkins: Test → Build & push image(Jib) → Depl
 ### 2. 운영 서버
 - Docker Engine과 Docker Compose 플러그인, 그리고 외부 네트워크 `proxy`(Traefik)와 `postgresql`이 이미 있어야 한다.
 - Traefik은 entrypoint `websecure`, 인증서 resolver `letsencrypt`를 쓴다(`deploy/compose.yml` 라벨).
-- DNS에서 `oss-poc-api.jjoon.cloud`가 운영 서버를 가리키게 한다.
+- DNS에서 `oss-eol-api.jjoon.cloud`가 운영 서버를 가리키게 한다.
 - 배포 계정(예: `deploy`)을 만들고 `docker` 그룹에 넣는다.
 - 배포 디렉터리를 만들고 `app.env`를 작성한다.
   ```bash
@@ -89,5 +89,5 @@ DB 스키마는 되돌려지지 않는다. Flyway 마이그레이션을 추가�
 cd /opt/projects/oss-eol-poc
 docker compose --env-file image.env ps
 docker compose --env-file image.env logs -f app
-curl -s https://oss-poc-api.jjoon.cloud/api/opensources
+curl -s https://oss-eol-api.jjoon.cloud/api/opensources
 ```
