@@ -26,7 +26,7 @@ eol:
   ai:
     model: claude-sonnet-5-5
     effort: medium
-    max-tokens: 32000
+    max-tokens: ${EOL_AI_MAXTOKENS:32000}
     prompt-version: extract-v1
   cors:
     allowed-origins: http://localhost:5173
