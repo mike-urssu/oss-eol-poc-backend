@@ -204,7 +204,7 @@ data class Quoted(val value: String, val quote: String)
 | 모델 | `claude-sonnet-5-5` (설정값 `eol.ai.model`) |
 | 구조화 출력 | `JsonOutputFormat`에 스키마를 직접 지정한다(`prompts/extract-v1.schema.json`). 클래스에서 자동 생성한 스키마는 Kotlin nullable 필드도 `null`을 허용하지 않는 필수 값으로 만들어, 문서에 없는 값을 AI가 지어내게 되므로 쓰지 않는다. |
 | thinking / effort | `thinking`은 지정하지 않는다(adaptive). `effort`는 설정값, 기본 `medium`. fixture 정확도(9장)를 보고 조정한다. |
-| max_tokens | 기본 16000(설정값). 비스트리밍 호출. 버전이 많은 출처에서 부족하면 스트리밍 + 64000으로 바꾼다. |
+| max_tokens | 기본 32000(설정값). 비스트리밍 호출. 버전이 많은 출처에서 부족하면 스트리밍 + 64000으로 바꾼다. |
 | 입력 한도 | 컨텍스트 1M 토큰. 본문은 web fetch의 `max_content_tokens`(50000)로 상한을 둔다. |
 | 재시도 | SDK 기본 재시도(2회, 429/5xx/연결 오류) |
 | 거절 대비 | Claude API의 server-side fallback(`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`)을 켠다. Java SDK에서의 지정 방법은 구현 시 확인한다. 실제 응답 모델을 `ai_model`에 기록한다. |
@@ -649,7 +649,7 @@ eol:
   ai:
     model: claude-sonnet-5-5
     effort: medium
-    max-tokens: 16000
+    max-tokens: 32000
     prompt-version: extract-v1
   cors:
     allowed-origins: http://localhost:5173
