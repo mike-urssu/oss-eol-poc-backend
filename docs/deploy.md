@@ -58,7 +58,7 @@ GitHub ──webhook──▶ Jenkins: Test → Build & push image(Jib) → Depl
   |------|------|
   | `DEPLOY_HOST` | 운영 서버 `user@host` |
   | `DEPLOY_PORT` | 운영 서버 SSH 포트 |
-- Pipeline job 생성: "Pipeline script from SCM" → `https://github.com/mike-urssu/oss-eol-poc-backend`, 브랜치 `main`, Script Path `Jenkinsfile`
+- Multibranch Pipeline job 생성: Branch Source GitHub → `https://github.com/mike-urssu/oss-eol-poc-backend`, Script Path `Jenkinsfile`. 모든 브랜치가 테스트되고, 이미지 빌드·배포는 `Jenkinsfile`의 `when { branch 'main' }` 조건으로 `main`에서만 실행된다.
 - GitHub 저장소에 Jenkins webhook(`https://<jenkins>/github-webhook/`)을 등록하거나 job에서 Poll SCM을 설정한다.
 
 ## 로컬에서 이미지 확인
