@@ -13,10 +13,10 @@ import cloud.jjoon.eolpoc.extraction.Extraction
 import cloud.jjoon.eolpoc.extraction.ExtractionException
 import cloud.jjoon.eolpoc.extraction.ExtractionRequest
 import cloud.jjoon.eolpoc.extraction.Extractor
-import cloud.jjoon.eolpoc.extraction.Fetched
 import cloud.jjoon.eolpoc.extraction.domain.ExtractionMethod
 import cloud.jjoon.eolpoc.lifecycle.EolService
 import cloud.jjoon.eolpoc.lifecycle.domain.VersionRepository
+import cloud.jjoon.eolpoc.opensource.domain.CollectorType
 import cloud.jjoon.eolpoc.opensource.domain.OpensourceRepository
 import cloud.jjoon.eolpoc.opensource.domain.SourceConfig
 import cloud.jjoon.eolpoc.opensource.domain.SourceRepository
@@ -47,6 +47,7 @@ class CollectionOrchestrator(
     private val versions: VersionRepository,
     private val eolService: EolService,
     private val extractor: Extractor,
+    private val fetcher: SourceFetcher,
     private val props: EolProperties,
     private val clock: Clock,
     private val tx: TransactionTemplate,
@@ -112,15 +113,14 @@ class CollectionOrchestrator(
         val (opensourceId, source) = tx.execute {
             val run = runs.findById(runId).orElseThrow()
             val s = sources.findById(run.sourceId).orElseThrow()
-            run.opensourceId to SourceSnapshot(s.id!!, s.url, s.trustLevel, s.config, s.opensource.name)
+            run.opensourceId to SourceSnapshot(s.id!!, s.url, s.collectorType, s.trustLevel, s.config, s.opensource.name)
         }
         MDC.putCloseable("collectionId", runId.toString()).use {
             var fetched: Fetched? = null
             try {
-                // 본문만 가져오는 호출은 출력 토큰이 거의 없다. 본문이 그대로면 비싼 추출 호출을 건너뛴다(설계 D5).
-                fetched = extractor.fetch(source.url)
+                fetched = fetcher.fetch(source.collectorType, source.url, source.config)
                 // 추출·검증에 쓰이는 출처 설정이 바뀌면 원본이 같아도 다시 처리한다
-                val hash = sha256(listOf(props.ai.promptVersion, source.config, source.trustLevel, fetched.text).joinToString("\n"))
+                val hash = sha256(listOf(props.ai.promptVersion, source.config, source.trustLevel, fetched.contentText).joinToString("\n"))
 
                 val previous = runs.findFirstBySourceIdAndStatusAndIdLessThanOrderByIdDesc(source.id, CollectionStatus.SUCCESS, runId)
                 if (previous?.contentHash == hash) {
@@ -128,7 +128,7 @@ class CollectionOrchestrator(
                     return
                 }
                 val extraction = extractor.extract(
-                    ExtractionRequest(source.opensourceName, source.url, source.config.versionHint, fetched.text),
+                    ExtractionRequest(source.opensourceName, source.url, source.config.versionHint, fetched.contentText),
                 )
                 persist(runId, opensourceId, source, fetched, hash, extraction)
             } catch (e: Exception) {
@@ -143,7 +143,7 @@ class CollectionOrchestrator(
             val now = Instant.now(clock)
             val validated = CandidateValidator.validate(
                 extraction.result,
-                fetched.text,
+                fetched.contentText,
                 SourceRules(source.trustLevel, source.config.versionPattern?.let(::Regex)),
                 { version -> versions.findByOpensourceIdAndVersion(opensourceId, version)?.values() },
                 LocalDate.now(clock),
@@ -154,8 +154,8 @@ class CollectionOrchestrator(
             runs.findById(runId).orElseThrow().apply {
                 fill(fetched, hash)
                 aiModel = extraction.model
-                aiInputTokens = fetched.inputTokens + extraction.inputTokens
-                aiOutputTokens = fetched.outputTokens + extraction.outputTokens
+                aiInputTokens = extraction.inputTokens
+                aiOutputTokens = extraction.outputTokens
                 candidateCount = validated.size
                 status = CollectionStatus.SUCCESS
                 finishedAt = now
@@ -178,21 +178,24 @@ class CollectionOrchestrator(
     private fun finishFailed(runId: Long, fetched: Fetched?, e: Exception) = tx.executeWithoutResult {
         runs.findById(runId).orElseThrow().apply {
             fetched?.let { fill(it, null) }
-            errorCode = (e as? ExtractionException)?.code ?: "UNEXPECTED"
+            errorCode = when (e) {
+                is CollectionException -> e.code
+                is ExtractionException -> e.code
+                else -> "UNEXPECTED"
+            }
+            if (e is CollectionException) httpStatus = e.httpStatus ?: httpStatus
             errorMessage = e.message
             status = CollectionStatus.FAILED
             finishedAt = Instant.now(clock)
         }
     }
 
-    /** 가져온 본문과 그 호출의 사용량을 기록한다. 추출까지 했으면 persist가 사용량을 합계로 덮어쓴다. */
     private fun CollectionRun.fill(fetched: Fetched, hash: String?) {
-        contentText = fetched.text
+        httpStatus = fetched.httpStatus
+        rawContent = fetched.rawContent
+        contentText = fetched.contentText
         contentHash = hash
         promptVersion = props.ai.promptVersion
-        aiModel = fetched.model
-        aiInputTokens = fetched.inputTokens
-        aiOutputTokens = fetched.outputTokens
     }
 
     private fun sha256(s: String) = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(s.toByteArray()))
@@ -200,6 +203,7 @@ class CollectionOrchestrator(
     private data class SourceSnapshot(
         val id: Long,
         val url: String,
+        val collectorType: CollectorType,
         val trustLevel: TrustLevel,
         val config: SourceConfig,
         val opensourceName: String,

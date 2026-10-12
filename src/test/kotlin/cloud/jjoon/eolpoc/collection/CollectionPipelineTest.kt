@@ -14,6 +14,7 @@ import cloud.jjoon.eolpoc.opensource.api.SourceRequest
 import cloud.jjoon.eolpoc.opensource.domain.CollectorType
 import cloud.jjoon.eolpoc.opensource.domain.SourceConfig
 import cloud.jjoon.eolpoc.opensource.domain.TrustLevel
+import cloud.jjoon.eolpoc.support.FixtureServer
 import cloud.jjoon.eolpoc.support.IntegrationTest
 import org.junit.jupiter.api.BeforeEach
 import org.springframework.beans.factory.annotation.Autowired
@@ -33,13 +34,14 @@ class CollectionPipelineTest : IntegrationTest() {
     private fun collect() = collections.trigger("postgresql", null, Trigger.MANUAL)
     private fun lastRun() = query.collections("postgresql", 1).single()
 
-    private val sourceUrl = "https://endoflife.date/postgresql"
-
-    /** AI가 web fetch로 가져온 본문 */
     private val page = """
-        Version | Current minor | Supported | First Release | Final Release
-        17 | 17.6 | Yes | September 26, 2024 | November 8, 2029
-        16 | 16.10 | Yes | September 14, 2023 | November 9, 2028
+        <html><body><nav>menu</nav>
+        <table>
+          <tr><th>Version</th><th>Current minor</th><th>Supported</th><th>First Release</th><th>Final Release</th></tr>
+          <tr><td>17</td><td>17.6</td><td>Yes</td><td>September 26, 2024</td><td>November 8, 2029</td></tr>
+          <tr><td>16</td><td>16.10</td><td>Yes</td><td>September 14, 2023</td><td>November 9, 2028</td></tr>
+        </table>
+        </body></html>
     """.trimIndent()
 
     private val row16 = "16 | 16.10 | Yes | September 14, 2023 | November 9, 2028"
@@ -59,9 +61,9 @@ class CollectionPipelineTest : IntegrationTest() {
         opensources.create("postgresql", "PostgreSQL", "https://www.postgresql.org", null)
         opensources.addSource(
             "postgresql",
-            SourceRequest(sourceUrl, CollectorType.WEB, TrustLevel.OFFICIAL, SourceConfig(versionPattern = """\d+""")),
+            SourceRequest(FixtureServer.url(), CollectorType.WEB, TrustLevel.OFFICIAL, SourceConfig(versionPattern = """\d+""")),
         )
-        extractor.page = page
+        FixtureServer.body = page
     }
 
     @Test
@@ -75,16 +77,14 @@ class CollectionPipelineTest : IntegrationTest() {
         assertEquals("2028-11-09", detail.eolDate?.date.toString())
         assertEquals(EolStatus.SUPPORTED, detail.eolStatus.status)
         val eolEvidence = detail.evidence.single { it.field == "EOL_DATE" }
-        assertEquals(sourceUrl, eolEvidence.sourceUrl)
+        assertEquals(FixtureServer.url(), eolEvidence.sourceUrl)
         assertEquals(row16, eolEvidence.quote)
         assertEquals(
             listOf("EOL_DATE" to "2028-11-09"),
             detail.history.filter { it.field == "EOL_DATE" }.map { it.field to it.newValue },
         )
-        // 출처 URL로 본문을 가져와, 그 본문 그대로 추출에 넘긴다
-        assertEquals(listOf(sourceUrl), extractor.fetches)
-        assertEquals(page, extractor.requests.single().contentText)
-        assertEquals(150L to 15L, lastRun().aiInputTokens to lastRun().aiOutputTokens, "조회와 추출 사용량의 합")
+        // AI에는 HTML이 아니라 표 구조를 살린 텍스트가 전달된다
+        assert(row16 in extractor.requests.single().contentText)
     }
 
     @Test
@@ -96,9 +96,7 @@ class CollectionPipelineTest : IntegrationTest() {
         collect()
 
         assertTrue(lastRun().skippedUnchanged)
-        assertEquals(2, extractor.fetches.size, "본문은 매번 가져온다")
-        assertEquals(1, extractor.requests.size, "추출은 처음 한 번만")
-        assertEquals(50L to 5L, lastRun().aiInputTokens to lastRun().aiOutputTokens, "본문 조회 호출의 사용량만 기록")
+        assertEquals(1, extractor.requests.size)
         assertEquals(historyBefore, query.versionDetail("postgresql", "16").history)
     }
 
@@ -109,7 +107,7 @@ class CollectionPipelineTest : IntegrationTest() {
 
         opensources.updateSource(
             lastRun().sourceId,
-            SourceRequest(sourceUrl, CollectorType.WEB, TrustLevel.OFFICIAL, SourceConfig(versionPattern = """\d+(\.\d+)?""")),
+            SourceRequest(FixtureServer.url(), CollectorType.WEB, TrustLevel.OFFICIAL, SourceConfig(versionPattern = """\d+(\.\d+)?""")),
         )
         collect()
 
@@ -123,7 +121,7 @@ class CollectionPipelineTest : IntegrationTest() {
         collect()
         val historyBefore = query.versionDetail("postgresql", "16").history
 
-        extractor.page = page + "\nLast updated today"
+        FixtureServer.body = page.replace("</table>", "</table><p>Last updated today</p>")
         collect()
 
         assertEquals(false, lastRun().skippedUnchanged)
@@ -136,7 +134,7 @@ class CollectionPipelineTest : IntegrationTest() {
         collect()
 
         val changedRow = "16 | 16.10 | Yes | September 14, 2023 | November 16, 2028"
-        extractor.page = page.replace("November 9, 2028", "November 16, 2028")
+        FixtureServer.body = page.replace("November 9, 2028", "November 16, 2028")
         extractor.result = ExtractionResult(listOf(pg16(eol = "2028-11-16", eolQuote = changedRow)))
         collect()
 
@@ -162,7 +160,7 @@ class CollectionPipelineTest : IntegrationTest() {
     fun `거부한 후보는 반영되지 않는다`() {
         extractor.result = ExtractionResult(listOf(pg16()))
         collect()
-        extractor.page = page.replace("November 9, 2028", "November 16, 2028")
+        FixtureServer.body = page.replace("November 9, 2028", "November 16, 2028")
         extractor.result = ExtractionResult(
             listOf(pg16(eol = "2028-11-16", eolQuote = "16 | 16.10 | Yes | September 14, 2023 | November 16, 2028")),
         )
@@ -182,12 +180,12 @@ class CollectionPipelineTest : IntegrationTest() {
         extractor.result = ExtractionResult(listOf(pg16()))
         collect()
 
-        extractor.fetchFailure = ExtractionException("FETCH_ERROR", "출처를 가져오지 못함: url_not_accessible ($sourceUrl)")
+        FixtureServer.status = 503
         collect()
 
         val run = lastRun()
         assertEquals(CollectionStatus.FAILED, run.status)
-        assertEquals("FETCH_ERROR", run.errorCode)
+        assertEquals("HTTP_ERROR", run.errorCode)
         assertEquals(EolStatus.SUPPORTED, query.versionDetail("postgresql", "16").eolStatus.status)
         val summary = query.list(null, null, null).single()
         assertEquals(CollectionStatus.FAILED, summary.collectionStatus)
@@ -217,7 +215,7 @@ class CollectionPipelineTest : IntegrationTest() {
     @Test
     fun `검토가 필요한 신규 버전도 미확인 상태로 목록에 보인다`() {
         // 2045년 종료일은 비정상 범위라 검토 대상
-        extractor.page = "Version 30 is supported until 2045-01-01."
+        FixtureServer.body = "<p>Version 30 is supported until 2045-01-01.</p>"
         extractor.result = ExtractionResult(
             listOf(ExtractedVersion("30", null, null, Quoted("2045-01-01", "supported until 2045-01-01"), null, null)),
         )
@@ -232,14 +230,14 @@ class CollectionPipelineTest : IntegrationTest() {
 
     @Test
     fun `같은 버전에 새 검토 후보가 생기면 이전 후보는 대체된다`() {
-        extractor.page = "Version 30 is supported until 2045-01-01."
+        FixtureServer.body = "<p>Version 30 is supported until 2045-01-01.</p>"
         extractor.result = ExtractionResult(
             listOf(ExtractedVersion("30", null, null, Quoted("2045-01-01", "supported until 2045-01-01"), null, null)),
         )
         collect()
         val first = query.pendingCandidates().single().id
 
-        extractor.page = "Version 30 is supported until 2046-01-01."
+        FixtureServer.body = "<p>Version 30 is supported until 2046-01-01.</p>"
         extractor.result = ExtractionResult(
             listOf(ExtractedVersion("30", null, null, Quoted("2046-01-01", "supported until 2046-01-01"), null, null)),
         )
@@ -252,7 +250,7 @@ class CollectionPipelineTest : IntegrationTest() {
 
     @Test
     fun `날짜를 확인할 수 없는 버전은 값 없이 미확인이다`() {
-        extractor.page = "Version 9 exists."
+        FixtureServer.body = "<p>Version 9 exists.</p>"
         extractor.result = ExtractionResult(listOf(ExtractedVersion("9", null, null, null, null, null)))
 
         collect()

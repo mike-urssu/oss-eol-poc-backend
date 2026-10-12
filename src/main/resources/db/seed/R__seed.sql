@@ -17,7 +17,7 @@ ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, homepage_url = EXCLUDED.h
 -- 예전 공식 사이트 출처는 수집하지 않는다. 수집 이력과 근거가 참조하므로 지우지 않고 비활성화한다.
 -- OpenSSH는 endoflife.date에 페이지가 없어 활성 출처가 남지 않는다.
 UPDATE source_registry SET active = false WHERE url NOT LIKE 'https://endoflife.date/%';
--- selector 설정은 더 이상 쓰지 않는다(본문은 AI가 web fetch로 가져온다).
+-- endoflife.date 페이지는 선택자 없이도 본문이 짧아 selector를 쓰지 않는다. 예전 출처에 남은 값은 지운다.
 UPDATE source_registry SET config = config - 'selector' WHERE config->>'selector' IS NOT NULL;
 
 -- 버전은 endoflife.date 표의 Release 값을 그대로 쓴다.

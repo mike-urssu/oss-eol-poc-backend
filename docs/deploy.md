@@ -1,6 +1,6 @@
 # 운영 배포 (Jenkins)
 
-`main` 브랜치를 Jenkins가 빌드해 운영 서버 1대에 Docker로 배포하고, Traefik을 통해 `https://oss-eol-api.jjoon.cloud`로 서비스한다. 비밀값(DB 비밀번호, Anthropic API 키)은 Jenkins를 거치지 않고 운영 서버의 `app.env`에만 둔다.
+`main` 브랜치를 Jenkins가 빌드해 운영 서버 1대에 Docker로 배포하고, Traefik을 통해 `https://oss-eol-api.jjoon.cloud`로 서비스한다. 비밀값(DB 비밀번호, Azure OpenAI API 키)은 Jenkins를 거치지 않고 운영 서버의 `app.env`에만 둔다.
 
 ```
 GitHub ──webhook──▶ Jenkins: Test → Build & push image(Jib) → Deploy(SSH) → Verify → Clean up registry

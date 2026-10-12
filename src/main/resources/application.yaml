@@ -23,9 +23,17 @@ eol:
   soon-threshold-days: 90
   collection:
     cron: "0 0 3 * * *"
+  http:
+    connect-timeout: 5s
+    read-timeout: 30s
+    user-agent: "eol-poc/0.1"
+    max-retries: 2
+    retry-delay: 1s
   ai:
-    model: claude-sonnet-5-5
-    effort: medium
+    # Azure OpenAI 배포 이름. 구조화 출력(strict JSON 스키마)을 지원하는 모델이어야 한다
+    model: ${EOL_AI_MODEL:gpt-4.1}
+    # 추론 모델(o 시리즈, GPT-5 등)일 때만 low/medium/high로 정한다. 비워 두면 보내지 않는다
+    effort: ${EOL_AI_EFFORT:}
     max-tokens: ${EOL_AI_MAXTOKENS:32000}
     prompt-version: extract-v1
   cors:

@@ -28,7 +28,7 @@
  (cron)     ├─▶ │ CollectionOrchestrator ─▶ Collector ─▶ Extractor ─▶ Normalizer ─▶ Validator ─▶ EolService ─▶ DB │
  수동 재수집 ─┘   │                           (Web/Api)    (AI 기본)                                    ▲             │
  (REST API)     │                                          │                                         │             │
-                │                                   Anthropic API                         ReviewService(검토 승인)  │
+                │                                Azure OpenAI API                         ReviewService(검토 승인)  │
                 │                                                                                                 │
  SPA ─────────▶ │ 조회 API ─▶ QueryService ─▶ EolStatusCalculator (조회 시 계산)                                    │
                 └─────────────────────────────────────────────────────────────────────────────────────────────────┘
@@ -42,9 +42,9 @@
 | D2 | 검증 상태는 후보(버전 1건) 단위로 정하며, 필드 중 가장 엄격한 결과를 따른다. | 필드 단위 부분 반영은 근거·이력 처리가 복잡해진다. |
 | D3 | VAL-09(AI 값 변경)·VAL-10(이상 변경)·VAL-12(출처 간 충돌)는 하나의 규칙 `VALUE_CHANGED`로 구현한다. | 모든 추출이 AI이므로 "승인된 값과 다르면 검토"로 세 규칙이 모두 충족된다. 같은 수집 주기의 출처 간 충돌은 출처를 순서대로 처리하여 앞 출처 값이 승인된 뒤 비교되도록 한다. |
 | D4 | `LATEST_PATCH_VERSION`이 다른 값으로 바뀌는 것은 `VALUE_CHANGED` 대상에서 제외한다. 근거 확인만 통과하면 자동 승인하고 변경 이력은 남긴다. 단, 승인된 값이 **없어지는** 경우는 검토한다. | 패치 릴리스마다 검토가 생기면 검토 큐가 의미를 잃는다. EOL 판단과 무관한 값이다. |
-| D5 | 수집은 두 번의 AI 호출로 나눈다. 먼저 web fetch로 본문만 가져오고(출력 토큰 거의 없음), 그 본문·프롬프트 버전·출처 설정(config, 신뢰 수준)의 해시가 직전 성공 수집과 같으면 추출을 생략한다. | 추출 호출이 비용의 대부분(출력 토큰)이다. 같은 본문을 매번 다시 추출하면 AI 출력의 흔들림으로 검토가 생긴다(R1). 프롬프트나 출처 설정을 바꾸면 다시 추출·검증해야 한다. |
+| D5 | 콘텐츠 해시는 원본 HTML이 아니라 **AI에 전달한 텍스트**로 계산하고, 프롬프트 버전과 출처 설정(config, 신뢰 수준)이 같을 때만 생략한다. | HTML에는 매 요청 바뀌는 토큰·타임스탬프가 섞여 해시가 매번 달라질 수 있다. 같은 본문을 매번 다시 추출하면 AI 출력의 흔들림으로 검토가 생긴다(R1). 프롬프트나 출처 설정을 바꾸면 다시 추출·검증해야 한다. |
 | D6 | 근거의 `source_url`은 AI 출력이 아니라 **코드가 출처 설정에서 채운다**. | AI가 URL을 만들어내는 것을 원천 차단한다. |
-| D7 | AI 모델 ID·프롬프트 버전·토큰 사용량은 후보가 아니라 `eol_collection`에 기록한다(수집 1회 = 본문 조회 1회 + 바뀐 경우 추출 1회, 사용량은 합계). 후보는 `collection_id`로 참조한다. | 같은 값의 중복 저장 방지 |
+| D7 | AI 모델 ID·프롬프트 버전·토큰 사용량은 후보가 아니라 `eol_collection`에 기록한다(수집 1회 = AI 호출 최대 1회). 후보는 `collection_id`로 참조한다. | 같은 값의 중복 저장 방지 |
 | D8 | 근거 테이블에 `value`와 `source_id`를 추가하고 `(version_id, field, source_id, value)`를 UNIQUE로 둔다. | "이 근거가 어떤 값을 뒷받침하는가"를 알아야 현재 값의 근거만 보여줄 수 있고, 같은 값 재확인 시 행을 늘리지 않고 확인 시각만 갱신할 수 있다(STO-04). |
 | D9 | 같은 출처·같은 버전에 미처리 검토 후보가 있는데 새 검토 후보가 생기면 이전 후보는 `REJECTED`(사유 `SUPERSEDED`)로 닫는다. | 매일 같은 검토 건이 쌓이는 것을 막는다(REV-03을 별도 상태 없이 구현). |
 | D10 | 처음 발견된 버전은 후보가 `REJECTED`가 아니면(승인 또는 검토 필요) 즉시 `oss_version` 행을 만든다. 검토 필요인 경우 값은 비어 있다. | STO-08. 검토 대기 중인 신규 버전도 화면에 "미확인 / 검토 필요"로 보여야 한다. |
@@ -65,10 +65,10 @@ cloud.jjoon.eolpoc
 ├── opensource/    OpensourceService
 │   ├── api/       등록·수정 API (OpensourceController, OpensourceDtos)
 │   └── domain/    Opensource·Source 엔티티, SourceConfig, TrustLevel, CollectorType, 리포지토리
-├── collection/    CollectionOrchestrator, CollectionScheduler
+├── collection/    CollectionOrchestrator, CollectionScheduler, SourceFetcher(Web/Api), HtmlToText, Fetched, CollectionException
 │   ├── api/       수집 API (CollectionController, CollectionDtos)
 │   └── domain/    CollectionRun 엔티티, CollectionStatus, Trigger, 리포지토리
-├── extraction/    Extractor 인터페이스, AiExtractor(web fetch 본문 조회 + 추출), Fetched, 출력 스키마(ExtractionResult), 프롬프트
+├── extraction/    Extractor 인터페이스, AiExtractor, 출력 스키마(ExtractionResult), 프롬프트
 │   └── domain/    ExtractionMethod
 ├── validation/    CandidateValidator, QuoteVerifier, DateMentionParser, ValidatedCandidate, SourceRules
 │   └── domain/    Evidence, Reason, ValidationStatus
@@ -82,7 +82,7 @@ cloud.jjoon.eolpoc
 ```
 
 - 파일 하나에 최상위 타입 하나를 두고 파일 이름을 타입 이름과 같게 한다(`Version`은 `Version.kt`, `VersionRepository`는 `VersionRepository.kt`). HTTP 요청·응답 DTO만 기능별 `*Dtos.kt`(예: `LifecycleDtos.kt`)에 묶는다.
-- 인터페이스는 구현을 실제로 바꿔 끼우는 곳에만 만든다. 현재는 `Extractor`(AiExtractor + 테스트용 Fake, 향후 전용 Parser) 하나뿐이다. 본문 조회(web fetch)와 추출이 모두 Claude 호출이라 같은 seam 뒤에 두고, 테스트는 Fake가 가져온 본문과 추출 결과를 함께 정한다.
+- 인터페이스는 구현을 실제로 바꿔 끼우는 곳에만 만든다. 현재는 `Extractor`(AiExtractor + 테스트용 Fake, 향후 전용 Parser) 하나뿐이다. 수집 방식(Web/Api)은 본문 변환 한 단계만 달라서 `SourceFetcher` 안에서 나누고, 테스트는 HTTP 자체를 로컬 서버로 대체한다.
 - 전용 Parser(COL-02, P2)는 필요해질 때 `extraction/parser/`에 추가하고 `source_registry.parser_key`로 선택한다.
 
 ---
@@ -133,32 +133,38 @@ Orchestrator            Collector          Extractor(AI)        Normalizer/Valid
 
 ## 4. 컴포넌트 상세
 
-### 4.1 본문 조회 (AI web fetch)
+### 4.1 SourceFetcher (수집)
 
-출처는 `https://endoflife.date/{slug}` 하나로 통일한다. 앱은 직접 HTTP로 가져오지 않고, Claude의 web fetch 서버 도구가 가져온다.
+출처는 `https://endoflife.date/{slug}` 하나로 통일한다(`WEB`). 본문은 앱이 직접 HTTP로 가져온다. 사내망에서 쓰는 Azure OpenAI에는 Claude의 web fetch처럼 페이지 본문을 그대로 돌려주는 도구가 없기 때문이다(`web_search`는 답변과 인용 URL만 준다).
 
 ```kotlin
-fun fetch(url: String): Fetched   // Extractor
+fun fetch(type: CollectorType, url: String, config: SourceConfig): Fetched
 
 data class Fetched(
-    val text: String,           // web fetch가 돌려준 본문 텍스트 (eol_collection.content_text)
-    val model: String,
-    val inputTokens: Long,
-    val outputTokens: Long,
+    val httpStatus: Int,
+    val rawContent: String,     // 응답 본문 원문 (eol_collection.raw_content)
+    val contentText: String,    // AI에 전달할 텍스트 (eol_collection.content_text)
 )
 ```
 
-- 도구: `web_fetch_20250910`(기본형, 동적 필터링 없음). 본문 전체가 응답의 `web_fetch_tool_result`에 그대로 담겨 오므로, 그 텍스트로 해시를 계산하고 근거 문구를 검증한다(VAL-08).
-- 제한: `max_uses = 1`, `allowed_domains = [출처 URL의 호스트]`, `max_content_tokens = 50000`. 본문에 섞인 지시로 다른 주소를 가져오지 못하게 한다.
-- 이 호출은 "가져온 뒤 '완료'라고만 답하라"는 짧은 프롬프트와 `effort: low`로 실행해 출력 토큰이 거의 없다. 본문이 바뀐 경우에만 4.2의 추출 호출을 한다(D5).
-- 실패: 도구 오류(`url_not_accessible`, `url_not_allowed` 등)는 HTTP 200 안의 오류 블록으로 오며 `FETCH_ERROR`로 기록한다. PDF처럼 텍스트가 아닌 본문도 `FETCH_ERROR`.
-- 한계: web fetch는 결과를 캐시하므로 최신 내용이 아닐 수 있다(캐시 우회 `use_cache`는 동적 필터링 버전에만 있다). JavaScript 렌더링 페이지와 `robots.txt`가 막은 페이지는 가져올 수 없다.
-- `eol_collection.http_status`, `raw_content`는 더 이상 채우지 않는다(이전 수집 기록용으로 컬럼은 남긴다).
+| 수집 방식 | 처리 |
+|------|------|
+| `WEB` | `RestClient` GET → Jsoup 파싱 → `config.selector`가 있으면 해당 영역만 선택 → `HtmlToText`로 텍스트 변환 |
+| `API` | `RestClient` GET → 응답 본문(JSON)을 그대로 `contentText`로 사용 |
+| `GITHUB` | 대상 중 필요한 출처가 생길 때 `when` 분기로 추가. 지금은 `UNSUPPORTED_COLLECTOR`로 실패한다 |
+
+- 공통 HTTP 설정(COL-07): 연결 5초·읽기 30초 타임아웃, `User-Agent` 설정값, 2xx 외 응답은 예외. 재시도는 Spring Framework 7의 `RetryTemplate`(최대 2회, 지수 백오프)을 사용한다.
+- 사내망에서 외부로 나가는 요청이 프록시를 거쳐야 하면 JVM 옵션(`-Dhttps.proxyHost`, `-Dhttps.proxyPort`)으로 지정한다.
+- **`HtmlToText`**: `script`, `style`, `nav`, `header`, `footer`를 제거하고, 블록 요소와 `<br>`, `<tr>`은 줄바꿈, `<td>`/`<th>`는 ` | `로 이어 붙인다. 표의 행 구조를 유지해야 AI가 "버전 ↔ 종료일" 대응을 정확히 읽는다. endoflife.date 페이지는 선택자 없이도 본문이 수 KB라 `selector`를 두지 않는다.
+- endoflife.date 표에는 "1 year ago", "Ends in 4 years" 같은 상대 기간이 함께 렌더링된다. 이 문구가 바뀌면(사이트 재빌드 시) 해시가 달라져 다시 추출하지만, 값이 같으면 검토는 생기지 않는다.
+- JavaScript로 렌더링되는 페이지는 수집할 수 없다. 해당 출처는 공식 API나 다른 공식 페이지로 대체한다(11장 R4).
+
 
 **출처 설정(`source_registry.config`, jsonb)**
 
 | 키 | 필수 | 용도 |
 |----|------|------|
+| `selector` | 아니요 | CSS 선택자. 본문 범위를 좁혀 토큰과 오추출을 줄인다(AI-06). |
 | `versionHint` | 아니요 | AI 프롬프트에 전달할 버전 단위 설명. 예: `"메이저 버전(예: 16). 16.4 같은 패치 버전은 latestPatchVersion으로"` |
 | `versionPattern` | 아니요 | VAL-06 정규식. 예: `^\d+$` |
 
@@ -166,13 +172,12 @@ data class Fetched(
 
 ```kotlin
 interface Extractor {
-    fun fetch(url: String): Fetched                        // 4.1
     fun extract(request: ExtractionRequest): Extraction    // 이름·URL·versionHint·본문
 }
 
 data class Extraction(
     val result: ExtractionResult,
-    val model: String,          // 응답의 실제 모델 ID (fallback 시 달라질 수 있음)
+    val model: String,          // 응답의 실제 모델 ID (배포 이름이 아니라 모델 버전, 예: gpt-4.1-2025-04-14)
     val promptVersion: String,
     val inputTokens: Long,
     val outputTokens: Long,
@@ -200,22 +205,22 @@ data class Quoted(val value: String, val quote: String)
 
 | 항목 | 값 |
 |------|----|
-| SDK | `com.anthropic:anthropic-java` (2.34.0), `AnthropicOkHttpClient.fromEnv()` — `ANTHROPIC_API_KEY` 환경 변수 사용 |
-| 모델 | `claude-sonnet-5-5` (설정값 `eol.ai.model`) |
-| 구조화 출력 | `JsonOutputFormat`에 스키마를 직접 지정한다(`prompts/extract-v1.schema.json`). 클래스에서 자동 생성한 스키마는 Kotlin nullable 필드도 `null`을 허용하지 않는 필수 값으로 만들어, 문서에 없는 값을 AI가 지어내게 되므로 쓰지 않는다. |
-| thinking / effort | `thinking`은 지정하지 않는다(adaptive). `effort`는 설정값, 기본 `medium`. fixture 정확도(9장)를 보고 조정한다. |
-| max_tokens | 기본 32000(설정값). 비스트리밍 호출. 버전이 많은 출처에서 부족하면 스트리밍 + 64000으로 바꾼다. |
-| 입력 한도 | 컨텍스트 1M 토큰. 본문은 web fetch의 `max_content_tokens`(50000)로 상한을 둔다. |
+| API | Azure OpenAI v1 API(`{엔드포인트}/openai/v1`)의 Chat Completions |
+| SDK | `com.openai:openai-java` (4.80.0), `OpenAIOkHttpClient.fromEnv()` — `OPENAI_BASE_URL`(v1 엔드포인트), `AZURE_OPENAI_KEY` 환경 변수 사용. 사내 게이트웨이 도메인은 SDK가 Azure로 알아보지 못하므로 `AzureUrlPathMode.UNIFIED`를 지정한다(`api-key` 헤더, 모델은 요청 본문). |
+| 모델 | Azure 배포 이름 (설정값 `eol.ai.model`, 기본 `gpt-4.1`). 구조화 출력을 지원하는 모델이어야 한다(GPT-4o 2024-08-06 이후, GPT-4.1, GPT-5 계열 등). |
+| 구조화 출력 | `response_format: json_schema`, `strict: true`에 스키마를 직접 지정한다(`prompts/extract-v1.schema.json`). strict 모드는 모든 필드를 `required`, `additionalProperties: false`로 요구하며, 없는 값은 `null` 타입으로 받는다. 클래스에서 자동 생성한 스키마는 Kotlin nullable 필드도 `null`을 허용하지 않는 필수 값으로 만들어, 문서에 없는 값을 AI가 지어내게 되므로 쓰지 않는다. |
+| reasoning_effort | 설정값 `eol.ai.effort`. 추론 모델(o 시리즈, GPT-5 등)일 때만 지정하고, 비어 있으면 보내지 않는다(그 밖의 모델은 이 값을 받으면 오류). |
+| max_completion_tokens | 기본 32000(설정값). 비스트리밍 호출. 모델의 최대 출력 토큰을 넘지 않게 한다(GPT-4o 16384, GPT-4.1 32768). |
+| 입력 한도 | 모델 컨텍스트 한도. 넘는 출처는 `selector`로 범위를 줄인다(AI-06). |
 | 재시도 | SDK 기본 재시도(2회, 429/5xx/연결 오류) |
-| 거절 대비 | Claude API의 server-side fallback(`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`)을 켠다. Java SDK에서의 지정 방법은 구현 시 확인한다. 실제 응답 모델을 `ai_model`에 기록한다. |
 
 **응답 처리 (AI-05)**
 
 | 상황 | 처리 |
 |------|------|
-| `stop_reason = end_turn` | 정상 |
-| `stop_reason = max_tokens` | 수집 `FAILED` (`AI_OUTPUT_TRUNCATED`) — 잘린 결과는 쓰지 않는다 |
-| `stop_reason = refusal` | 수집 `FAILED` (`AI_REFUSED`) |
+| `finish_reason = stop` | 정상 |
+| `finish_reason = length` | 수집 `FAILED` (`AI_OUTPUT_TRUNCATED`) — 잘린 결과는 쓰지 않는다 |
+| `finish_reason = content_filter`, `message.refusal` 있음 | 수집 `FAILED` (`AI_REFUSED`) |
 | API 예외, 스키마 불일치 | 수집 `FAILED` (`AI_ERROR`) |
 
 **프롬프트** (`src/main/resources/prompts/extract-v1.md`, 프롬프트 버전 = 파일명)
@@ -646,9 +651,15 @@ eol:
   soon-threshold-days: 90
   collection:
     cron: "0 0 3 * * *"
+  http:
+    connect-timeout: 5s
+    read-timeout: 30s
+    user-agent: "eol-poc/0.1"
+    max-retries: 2
+    retry-delay: 1s
   ai:
-    model: claude-sonnet-5-5
-    effort: medium
+    model: ${EOL_AI_MODEL:gpt-4.1}
+    effort: ${EOL_AI_EFFORT:}
     max-tokens: ${EOL_AI_MAXTOKENS:32000}
     prompt-version: extract-v1
   cors:
@@ -656,7 +667,7 @@ eol:
 ```
 
 - `eol.*`는 `@ConfigurationProperties` 데이터 클래스 하나(`EolProperties`)로 받는다.
-- `ANTHROPIC_API_KEY`와 운영 DB 접속 정보(`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`)는 환경 변수로 주입한다(NFR-07). 운영은 서버의 `app.env`에 둔다(`docs/deploy.md`).
+- `OPENAI_BASE_URL`, `AZURE_OPENAI_KEY`와 운영 DB 접속 정보(`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`)는 환경 변수로 주입한다(NFR-07). 운영은 서버의 `app.env`에 둔다(`docs/deploy.md`).
 - `datasource`의 기본값은 로컬 개발용이다. DB 이름·사용자·비밀번호가 모두 `oss-eol`(`localhost:5432`)이며 비밀값이 아니므로 저장소에 둔다. 로컬 PostgreSQL에는 다음처럼 만든다.
   ```sql
   CREATE USER "oss-eol" WITH PASSWORD 'oss-eol';
@@ -672,7 +683,8 @@ eol:
 | REST API | Spring Boot Web MVC starter |
 | DB | Spring Data JPA starter, Flyway starter + `flyway-database-postgresql`, `org.postgresql:postgresql` |
 | JSON (Kotlin) | Jackson Kotlin 모듈 (Boot 4 = Jackson 3) |
-| AI | `com.anthropic:anthropic-java:2.34.0` |
+| HTML 파싱 | `org.jsoup:jsoup` |
+| AI | `com.openai:openai-java:4.80.0` |
 | 테스트 | Spring Boot Testcontainers, Testcontainers PostgreSQL |
 | 빌드 플러그인 | `kotlin("plugin.jpa")`, `allOpen` 설정 |
 
@@ -684,7 +696,7 @@ Boot 4에서 starter 이름이 일부 바뀌었으므로 정확한 좌표는 구
 
 | 종류 | 대상 | 방법 |
 |------|------|------|
-| 단위 | `EolStatusCalculator`, `VersionComparator`, `Normalizer`, `DateMentionParser`, `QuoteVerifier`, 검증 규칙 | 순수 함수 테스트. 고정 `Clock` 사용 |
+| 단위 | `EolStatusCalculator`, `VersionComparator`, `Normalizer`, `DateMentionParser`, `QuoteVerifier`, 검증 규칙, `HtmlToText` | 순수 함수 테스트. 고정 `Clock` 사용 |
 | 통합 | 수집 → 검증 → 반영 전체 흐름 | Testcontainers PostgreSQL + `FakeExtractor`(고정 `ExtractionResult` 반환) + 로컬 fixture HTTP 응답 |
 | AI 정확도 | Opensource별 추출 결과 | 저장한 `contentText` fixture와 기대값 비교. `@Tag("ai")`로 분리하여 기본 `test`에서 제외하고, 프롬프트·모델 변경 시 수동 실행 |
 
@@ -711,7 +723,7 @@ POC에서 의도적으로 단순화한 부분이다. 1,000개 이상으로 확�
 | 정기 수집 | 순차 실행 | 출처 수 × (HTTP + AI 시간) | 가상 스레드로 Opensource 단위 병렬 실행, 호스트별 요청 간격 |
 | 목록 집계 | 전체 로드 후 메모리 집계·필터 | 버전 수만 건 이상에서 느려짐 | SQL 집계 또는 요약 테이블 |
 | 원본 저장 | 수집마다 `raw_content`, `content_text` 저장 | 저장 공간 증가 | 해시가 같으면 저장 생략, 보관 기간 정책 |
-| AI 입력 | 출처 1개 = 호출 1번, 분할 없음 | 매우 큰 문서 | 분할 추출 |
+| AI 입력 | 출처 1개 = 호출 1번, 분할 없음 | 매우 큰 문서 | 분할 추출 또는 출처별 `selector` 정교화 |
 
 ---
 

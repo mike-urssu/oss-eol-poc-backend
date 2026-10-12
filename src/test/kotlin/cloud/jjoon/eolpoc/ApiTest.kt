@@ -1,9 +1,9 @@
 package cloud.jjoon.eolpoc
 
 import cloud.jjoon.eolpoc.extraction.ExtractedVersion
-import cloud.jjoon.eolpoc.extraction.ExtractionException
 import cloud.jjoon.eolpoc.extraction.ExtractionResult
 import cloud.jjoon.eolpoc.extraction.Quoted
+import cloud.jjoon.eolpoc.support.FixtureServer
 import cloud.jjoon.eolpoc.support.IntegrationTest
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
@@ -26,13 +26,13 @@ class ApiTest : IntegrationTest() {
         }.andExpect { status { isCreated() } }
         mvc.post("/api/opensources/$slug/sources") {
             contentType = MediaType.APPLICATION_JSON
-            content = """{"url": "https://endoflife.date/$slug", "collectorType": "WEB", "trustLevel": "OFFICIAL"}"""
+            content = """{"url": "${FixtureServer.url("/$slug")}", "collectorType": "WEB", "trustLevel": "OFFICIAL"}"""
         }.andExpect { status { isCreated() } }
     }
 
     /** 원문 한 줄에 "버전 | 종료일"을 두고 그 줄을 근거로 쓰는 AI 결과를 만든다. */
     private fun collectWith(slug: String, vararg versionToEol: Pair<String, String?>) {
-        extractor.page = versionToEol.joinToString("\n") { (v, eol) -> "$v | ${eol ?: "-"}" }
+        FixtureServer.body = versionToEol.joinToString("") { (v, eol) -> "<p>$v | ${eol ?: "-"}</p>" }
         extractor.result = ExtractionResult(
             versionToEol.map { (v, eol) -> ExtractedVersion(v, null, null, eol?.let { Quoted(it, "$v | $it") }, null, null) },
         )
@@ -81,13 +81,13 @@ class ApiTest : IntegrationTest() {
         register("postgresql", "PostgreSQL")
         register("openssl", "OpenSSL")
         collectWith("postgresql", "16" to "2028-11-09")
-        extractor.fetchFailure = ExtractionException("FETCH_ERROR", "출처를 가져오지 못함: url_not_accessible (https://endoflife.date/openssl)")
+        FixtureServer.status = 500
         mvc.post("/api/opensources/openssl/collections").andExpect { status { isAccepted() } }
 
         mvc.get("/api/opensources?collectionStatus=FAILED").andExpect {
             jsonPath("$.length()") { value(1) }
             jsonPath("$[0].slug") { value("openssl") }
-            jsonPath("$[0].collectionError") { value(org.hamcrest.Matchers.containsString("url_not_accessible")) }
+            jsonPath("$[0].collectionError") { value(org.hamcrest.Matchers.containsString("HTTP 500")) }
         }
     }
 
@@ -104,7 +104,7 @@ class ApiTest : IntegrationTest() {
             jsonPath("$.versions[2].version") { value("9") }
             jsonPath("$.versions[0].eolDate.date") { value("2022-11-30") }
             jsonPath("$.versions[0].eolDate.precision") { value("MONTH") }
-            jsonPath("$.versions[0].sourceUrls[0]") { value("https://endoflife.date/postgresql") }
+            jsonPath("$.versions[0].sourceUrls[0]") { value(FixtureServer.url("/postgresql")) }
             jsonPath("$.versions[2].eolStatus") { value("UNKNOWN") }
             jsonPath("$.sources[0].lastCollection.status") { value("SUCCESS") }
         }
@@ -136,7 +136,7 @@ class ApiTest : IntegrationTest() {
     @Test
     fun `수집 중에 다시 수집을 요청하면 409`() {
         register("postgresql", "PostgreSQL")
-        extractor.page = "x"
+        FixtureServer.body = "<p>x</p>"
         var secondStatus = 0
         extractor.onExtract = {
             secondStatus = mvc.post("/api/opensources/postgresql/collections").andReturn().response.status
@@ -204,7 +204,7 @@ class ApiTest : IntegrationTest() {
         register("postgresql", "PostgreSQL")
         mvc.put("/api/sources/1") {
             contentType = MediaType.APPLICATION_JSON
-            content = """{"url": "https://endoflife.date/postgresql", "collectorType": "WEB", "trustLevel": "OFFICIAL", "active": false}"""
+            content = """{"url": "${FixtureServer.url("/postgresql")}", "collectorType": "WEB", "trustLevel": "OFFICIAL", "active": false}"""
         }.andExpect { status { isOk() } }
 
         mvc.post("/api/opensources/postgresql/collections").andExpect {
@@ -223,6 +223,7 @@ class ApiTest : IntegrationTest() {
             jsonPath("$[0].aiModel") { value("fake-model") }
         }
         mvc.get("/api/collections/1/content").andExpect {
+            jsonPath("$.rawContent") { value("<p>16 | 2028-11-09</p>") }
             jsonPath("$.contentText") { value("16 | 2028-11-09") }
         }
     }
