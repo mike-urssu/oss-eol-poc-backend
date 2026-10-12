@@ -1,4 +1,5 @@
 // 운영 배포 파이프라인: 테스트 → Jib으로 이미지 빌드·push → SSH로 서버에 배포 → 기동 확인 → GHCR 오래된 이미지 정리
+// Multibranch Pipeline에서 모든 브랜치는 테스트만 하고, 이미지 빌드부터는 main 브랜치에서만 실행한다.
 // 처음 설정 방법은 docs/deploy.md 참고.
 // Jenkins 시스템 환경 변수 DEPLOY_HOST(운영 서버 user@host), DEPLOY_PORT(SSH 포트)를 사용한다.
 pipeline {
@@ -34,6 +35,7 @@ pipeline {
         }
 
         stage('Build & push image') {
+            when { branch 'main' }
             // Jib이 Docker 데몬 없이 이미지를 만들어 레지스트리에 바로 push한다(build.gradle.kts의 jib 설정).
             steps {
                 script {
@@ -46,6 +48,7 @@ pipeline {
         }
 
         stage('Deploy') {
+            when { branch 'main' }
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: env.DEPLOY_SSH_CRED, keyFileVariable: 'SSH_KEY')]) {
                     sh '''
@@ -66,6 +69,7 @@ pipeline {
         }
 
         stage('Verify') {
+            when { branch 'main' }
             steps {
                 // Flyway 마이그레이션까지 끝나야 응답하므로 넉넉히 기다린다. DB에 연결되지 않으면 503(DOWN)이라 재시도한다.
                 sh 'curl -fsS --retry 20 --retry-delay 6 --retry-all-errors "$APP_URL/actuator/health" > /dev/null'
@@ -73,6 +77,7 @@ pipeline {
         }
 
         stage('Clean up registry') {
+            when { branch 'main' }
             // GHCR에서 최신 KEEP_IMAGES개만 남긴다. 정리에 실패해도 배포는 성공으로 둔다.
             // 생성일 기준 정렬은 build.gradle.kts의 ghcrCleanup 태스크가 한다. ghcr-credentials의 PAT에 delete:packages 권한이 필요하다.
             steps {
