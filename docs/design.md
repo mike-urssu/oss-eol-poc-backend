@@ -630,9 +630,9 @@ spring:
   application:
     name: eol-poc-backend
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/eol}
-    username: ${DB_USERNAME:eol}
-    password: ${DB_PASSWORD:eol}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/oss-eol}
+    username: ${DB_USERNAME:oss-eol}
+    password: ${DB_PASSWORD:oss-eol}
   jpa:
     open-in-view: false
     hibernate:
@@ -656,7 +656,12 @@ eol:
 ```
 
 - `eol.*`는 `@ConfigurationProperties` 데이터 클래스 하나(`EolProperties`)로 받는다.
-- `ANTHROPIC_API_KEY`, `DB_PASSWORD`는 환경 변수로 주입한다(NFR-07).
+- `ANTHROPIC_API_KEY`와 운영 DB 접속 정보(`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`)는 환경 변수로 주입한다(NFR-07). 운영은 서버의 `app.env`에 둔다(`docs/deploy.md`).
+- `datasource`의 기본값은 로컬 개발용이다. DB 이름·사용자·비밀번호가 모두 `oss-eol`(`localhost:5432`)이며 비밀값이 아니므로 저장소에 둔다. 로컬 PostgreSQL에는 다음처럼 만든다.
+  ```sql
+  CREATE USER "oss-eol" WITH PASSWORD 'oss-eol';
+  CREATE DATABASE "oss-eol" OWNER "oss-eol";
+  ```
 
 ---
 
