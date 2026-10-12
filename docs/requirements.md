@@ -126,7 +126,7 @@ EOL 상태, 수집 상태, 검증 상태는 서로 독립적으로 관리한다.
 | COL-04 | Extractor(AI 또는 전용 Parser)의 결과를 Normalizer가 공통 후보 형식(5.2절)으로 변환한다. 날짜·정밀도 정규화는 코드로 수행한다. 원본에 없는 값은 추정하지 않고 `null`로 둔다. | P0 |
 | COL-05 | 수집 실행 1회마다 수집 상태(`SUCCESS`/`FAILED`), 시작·종료 시각, 실패 사유, 후보 건수를 기록한다. | P0 |
 | COL-06 | 원본 콘텐츠 해시가 직전 성공 수집과 같으면 AI 추출·검증을 생략하고 "변경 없음"으로 기록한다. AI 결과는 같은 입력에도 달라질 수 있으므로 불필요한 변경·검토 발생을 막기 위함이다. | P0 |
-| COL-07 | 외부 요청에는 타임아웃(기본 연결 5초, 읽기 30초)과 재시도(최대 2회, 지수 백오프)를 적용하고, 식별 가능한 User-Agent를 사용한다. | P1 |
+| COL-07 | ~~외부 요청에는 타임아웃(기본 연결 5초, 읽기 30초)과 재시도(최대 2회, 지수 백오프)를 적용하고, 식별 가능한 User-Agent를 사용한다.~~ 본문을 AI web fetch로 가져오면서 앱이 직접 요청하지 않으므로 해당 없음. | P1 |
 | COL-08 | 하나의 출처 수집 실패가 다른 출처·Opensource 수집을 중단시키지 않는다. | P0 |
 
 **수집 방식별 Collector (POC 구현 범위)**
@@ -190,7 +190,7 @@ Validator는 후보 데이터 1건(버전 1개)마다 아래 규칙을 순서대
 | AI-03 | AI 출력은 후보 데이터로만 저장하며 VAL-08, VAL-09를 거친다. AI는 DB를 직접 수정하지 않는다. | P0 |
 | AI-04 | 모델은 Claude Sonnet 5.5(`claude-sonnet-5-5`)를 사용하며 모델 ID는 설정값으로 관리한다. 후보에는 추출 방식(`RULE`/`AI`), 모델 ID, 프롬프트 버전을 기록한다. | P0 |
 | AI-05 | AI 호출 실패 또는 응답 형식 오류는 해당 수집을 `FAILED`로 기록하며 기존 현재 데이터에 영향을 주지 않는다. | P0 |
-| AI-06 | 원본이 AI 입력 한도를 넘으면 출처 설정의 CSS 선택자로 범위를 줄인다. 그래도 넘으면 `FAILED`로 기록한다(분할 처리는 POC 제외). | P1 |
+| AI-06 | 원본 본문은 web fetch의 `max_content_tokens`로 상한을 둔다. 넘는 출처가 생기면 상한을 늘린다(분할 처리는 POC 제외). | P1 |
 | AI-07 | AI 호출 비용·횟수 제한은 두지 않는다. 호출별 입력·출력 토큰 수를 로그로 기록한다(Q7 확정). | P1 |
 | AI-08 | 출처 후보 탐색(새 공식 출처 찾기)은 POC 범위에서 제외하되, 결과를 자동 등록하지 않는다는 원칙만 정한다. | P2 |
 
@@ -390,18 +390,18 @@ Scheduler/Orchestrator ─▶ Collector ─▶ Extractor ─▶ Normalizer ─�
 
 ## 10. 초기 대상 및 출처 후보
 
-아래 출처는 **조사 출발점**이며, 실제 제공 형식·EOL 날짜·데이터 확보 난이도는 구현 단계에서 확인한다.
+관리 대상 버전은 **출처에 나온 버전 전부**다(Q4). 버전 단위는 endoflife.date 표의 Release 값을 그대로 쓴다.
 
-| 순위 | Opensource | 버전 단위 | 출처 후보 | 예상 방식 | 비고 |
-|------|----------|-----------|-----------|-----------|------|
-| 1 | PostgreSQL | 메이저(`16`) | postgresql.org 버전 정책 페이지 | WEB | 버전별 종료일 표 제공 여부 확인 |
-| 2 | OpenSSL | `3.0`, `3.5` 등 | openssl-library.org 릴리스 전략·정책 페이지 | WEB | LTS·비LTS 구분 |
-| 3 | Apache Tomcat | `10.1` 등 | tomcat.apache.org 버전 안내·EOL 공지 | WEB | 버전 안내 페이지와 EOL 공지를 각각 출처로 등록 |
-| 4 | OpenSSH | 릴리스 버전 | openssh.com 릴리스 노트 | WEB | 버전별 EOL 날짜 정책이 없을 수 있음 → 다수 `UNKNOWN` 또는 지원 여부 명시 규칙(3.1 규칙 4·5) 적용 검토 |
-| 5 | Linux kernel | longterm 브랜치(`6.6` 등) | kernel.org 릴리스 JSON 및 릴리스 안내 페이지 | API + WEB | **업스트림만** 대상, 배포판 커널 제외 |
-| 6 | Spring Boot | `3.5` 등 | spring.io 프로젝트 지원 정책 페이지/API | API / WEB | OSS 지원 종료일만 수집, 상용 지원 종료일 제외(Q8) |
+| 순위 | Opensource (slug) | 버전 단위(예) | 출처 | 비고 |
+|------|----------|-----------|-----------|------|
+| 1 | PostgreSQL (`postgresql`) | `18`, `9.6` | `https://endoflife.date/postgresql` | |
+| 2 | OpenSSL (`openssl`) | `3.5`, `1.1.1` | `https://endoflife.date/openssl` | |
+| 3 | Apache Tomcat (`tomcat`) | `11.0`, `10.1`, `7` | `https://endoflife.date/tomcat` | |
+| 4 | OpenSSH (`openssh`) | - | 없음 | endoflife.date에 페이지가 없어 수집하지 않는다(출처 비활성화) |
+| 5 | Linux kernel (`linux`) | `6.12` | `https://endoflife.date/linux` | |
+| 6 | Spring Boot (`spring-boot`) | `3.5` | `https://endoflife.date/spring-boot` | OSS 지원 종료일만 수집, 상용 지원 종료일 제외(Q8) |
 
-- endoflife.date 등 제3자 집계 사이트는 `SECONDARY` 출처로만 사용할 수 있으며, 단독으로 자동 승인되지 않는다(VAL-07).
+- 출처는 endoflife.date(`https://endoflife.date/{slug}`)로 통일하고 `OFFICIAL`로 취급한다. 본문은 AI가 web fetch로 가져온다. endoflife.date에 페이지가 없는 Opensource(예: OpenSSH)는 수집하지 않는다.
 
 ---
 

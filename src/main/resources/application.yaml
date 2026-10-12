@@ -23,12 +23,6 @@ eol:
   soon-threshold-days: 90
   collection:
     cron: "0 0 3 * * *"
-  http:
-    connect-timeout: 5s
-    read-timeout: 30s
-    user-agent: "eol-poc/0.1"
-    max-retries: 2
-    retry-delay: 1s
   ai:
     model: claude-sonnet-5-5
     effort: medium

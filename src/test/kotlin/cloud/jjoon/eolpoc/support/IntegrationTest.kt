@@ -9,7 +9,6 @@ import org.springframework.jdbc.core.JdbcTemplate
 @SpringBootTest(
     properties = [
         "spring.flyway.locations=classpath:db/migration", // 시드 제외
-        "eol.http.retry-delay=0s",
     ],
 )
 @Import(TestBeans::class)
@@ -24,6 +23,5 @@ abstract class IntegrationTest {
                 "eol_candidate, eol_evidence, eol_change_history RESTART IDENTITY CASCADE",
         )
         extractor.reset()
-        FixtureServer.reset()
     }
 }
